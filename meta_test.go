@@ -1,7 +1,9 @@
 package bakelite
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -46,4 +48,13 @@ func mustEq[A any](tb testing.TB, want A, have Tuple[A]) {
 	tb.Helper()
 	ok(tb, have.err)
 	eq(tb, have.v, want)
+}
+
+// save file under ./testdata/<name>
+// They shouldn't be checked in, but we keep them around for easier manual checks
+func saveFile(t *testing.T, b *bytes.Buffer, name string) string {
+	t.Helper()
+	file := "./testdata/" + name
+	ok(t, os.WriteFile(file, b.Bytes(), 0666))
+	return file
 }

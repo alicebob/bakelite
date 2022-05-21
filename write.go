@@ -5,8 +5,11 @@ import (
 	"io"
 )
 
+const (
+	pageSize = 1 << 16 // see also writeHeader.PageSize
+)
+
 var (
-	pageSize    = 1 << 16
 	headerMagic = "SQLite format 3\x00"
 )
 
@@ -39,22 +42,22 @@ func writeHeader(w io.Writer, pageCount int) error {
 	}{
 		Magic:           asByte(headerMagic),
 		PageSize:        1, // special case for 1<<16
-		WriteVersion:    1, // "journal"
+		WriteVersion:    1, // "journal". "2" is WAL, but sqlittle doesn't read those
 		ReadVersion:     1, // "journal"
 		ReservedSpace:   0,
 		MaxFraction:     64,
 		MinFraction:     32,
 		LeafFraction:    32,
-		ChangeCounter:   0,
+		ChangeCounter:   42,
 		PageCount:       uint32(pageCount),
 		FirstFreelist:   0,
 		FreelistCount:   0,
 		SchemaCookie:    1, // we don't change the schema
 		SchemaFormat:    4,
 		PageCacheSize:   0,
-		TextEncoding:    1, // "UTF-8"
-		VersionValidFor: 0, // ??
-		SQLiteVersion:   0, // ??
+		TextEncoding:    1,  // "UTF-8"
+		VersionValidFor: 42, // must match ChangeCounter
+		SQLiteVersion:   0,  // ??
 	}
 	return binary.Write(w, binary.BigEndian, h)
 }
