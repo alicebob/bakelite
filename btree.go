@@ -4,10 +4,6 @@ import (
 	"encoding/binary"
 )
 
-// type tableLeaf struct {
-// cells []tableLeafCell
-// }
-
 // Write a "leaf table" page. It's on you to make sure the cells fit (for now).
 // Cells need to be ordered.
 // We ignore cell overflow for now.

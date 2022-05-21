@@ -12,24 +12,30 @@ func New() *db {
 	}
 }
 
-func (d *db) Add(table string, columns []string, rows [][]string) error {
-	sql := sqlCreate(table, columns)
+func (d *db) Add(table string, columns []string, rows [][]any) error {
+	page := makeTable(rows)
+	root := len(d.pages) + 1
+	d.pages = append(d.pages, page)
 	d.master = append(d.master, masterRow{
 		typ:      "table",
-		name:     table, // FIXME
-		tblName:  table, // FIXME
-		rootpage: 0,     // FIXME
-		sql:      sql,
+		name:     table,
+		tblName:  table,
+		rootpage: root,
+		sql:      sqlCreate(table, columns),
 	})
 	return nil
 }
 
 func (d *db) Write(w io.Writer) error {
-	if err := writeHeader(w, len(d.pages)); err != nil {
+	if err := d.UpdatePage1(); err != nil {
 		return err
 	}
-
-	panic("wip")
+	for _, p := range d.pages {
+		if _, err := w.Write(p.store); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func sqlCreate(table string, columns []string) string {

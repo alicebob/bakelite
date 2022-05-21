@@ -1,19 +1,23 @@
 package bakelite
 
 import (
+	"bytes"
 	"encoding/binary"
-	"io"
 )
 
 const (
-	pageSize = 1 << 16 // see also writeHeader.PageSize
+	pageSize = 1 << 12 // 16
 )
 
 var (
 	headerMagic = "SQLite format 3\x00"
 )
 
-func writeHeader(w io.Writer, pageCount int) error {
+func header(pageCount int) []byte {
+	ps := pageSize
+	if ps == 1<<16 {
+		ps = 1
+	}
 	// the file header, as described in "1.2. The Database Header"
 	h := struct {
 		Magic                [16]byte
@@ -41,7 +45,7 @@ func writeHeader(w io.Writer, pageCount int) error {
 		SQLiteVersion        uint32
 	}{
 		Magic:           asByte(headerMagic),
-		PageSize:        1, // special case for 1<<16
+		PageSize:        uint16(ps),
 		WriteVersion:    1, // "journal". "2" is WAL, but sqlittle doesn't read those
 		ReadVersion:     1, // "journal"
 		ReservedSpace:   0,
@@ -59,7 +63,9 @@ func writeHeader(w io.Writer, pageCount int) error {
 		VersionValidFor: 42, // must match ChangeCounter
 		SQLiteVersion:   0,  // ??
 	}
-	return binary.Write(w, binary.BigEndian, h)
+	b := &bytes.Buffer{}
+	binary.Write(b, binary.BigEndian, h)
+	return b.Bytes()
 }
 
 func asByte(s string) [16]byte {

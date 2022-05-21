@@ -49,7 +49,7 @@ func TestTableLeaf(t *testing.T) {
 	})
 
 	t.Run("bunch of rows", func(t *testing.T) {
-		payload := []byte(strings.Repeat("hello world", 40))
+		payload := []byte(strings.Repeat("hello world", 4))
 		var cells []tableLeafCell
 		for i := 0; i < 10; i++ {
 			cells = append(cells, tableLeafCell{

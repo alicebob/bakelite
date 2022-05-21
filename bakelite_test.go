@@ -23,3 +23,15 @@ func TestEmpty(t *testing.T) {
 
 	sqlite(t, file, ".tables", "planet")
 }
+
+func TestEmptyTable(t *testing.T) {
+	// single, empty table
+	db := New()
+	ok(t, db.Add("hello", []string{"planet"}, nil)) // no data
+
+	b := &bytes.Buffer{}
+	ok(t, db.Write(b))
+	file := saveFile(t, b, "emptytable.sqlite")
+
+	sqlite(t, file, ".tables", "hello\n")
+}
