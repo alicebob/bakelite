@@ -27,8 +27,8 @@ type CellPayload struct {
 }
 
 type TableLeafCell struct {
-	left    int64 // rowID
-	payload CellPayload
+	Left    int64 // rowID
+	Payload CellPayload
 }
 type TableLeaf struct {
 	Cells []TableLeafCell
@@ -227,8 +227,8 @@ func parseTableLeaf(c []byte, pageSize int) (TableLeafCell, error) {
 
 	pl, err := parsePayload(l, c[n:], pageSize, pageSize-35)
 	return TableLeafCell{
-		left:    rowid,
-		payload: pl,
+		Left:    rowid,
+		Payload: pl,
 	}, err
 }
 

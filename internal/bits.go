@@ -22,6 +22,27 @@ func ReadVarint(b []byte) (int64, int) {
 	}
 }
 
+// taken from Go source
+func PutUvarint(buf []byte, x uint64) int {
+	i := 0
+	for x >= 0x80 {
+		buf[i] = byte(x) | 0x80
+		x >>= 7
+		i++
+	}
+	buf[i] = byte(x)
+	return i + 1
+}
+
+// taken from Go source
+func PutVarint(buf []byte, x int64) int {
+	ux := uint64(x) << 1
+	if x < 0 {
+		ux = ^ux
+	}
+	return PutUvarint(buf, ux)
+}
+
 // Read a 24 bits two-complement integer.
 // b needs to be at least 3 bytes long
 func ReadTwos24(b []byte) int64 {
