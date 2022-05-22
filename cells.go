@@ -39,11 +39,11 @@ func (c *tableLeafCell) Bytes() []byte {
 //
 // - A 4-byte big-endian page number which is the left child pointer.
 // - A varint which is the integer key
-func (c *tableInteriorCell) Bytes() []byte {
+func interiorCell(left int, key int) []byte {
 	b := make([]byte, 9+4)
 	n := 0
-	internal.PutUint32(b[n:], uint32(c.left))
+	internal.PutUint32(b[n:], uint32(left))
 	n += 4
-	n += internal.PutUvarint(b[n:], uint64(c.key))
+	n += internal.PutUvarint(b[n:], uint64(key))
 	return b[:n]
 }

@@ -63,15 +63,15 @@ func writeTableInterior(page []byte, cells []tableInteriorCell) int {
 	// page[offset + 8..12]: rightmost pointer
 	offset := 0
 	page[offset] = 0x05 // interior table
-	rightmost := uint32(cells[len(cells)-1].left)
-	internal.PutUint32(page[offset+8:], rightmost) // right most cell
 
 	contentStart := len(page)
 	pointer := offset + 12 // where are we writing cell pointers to in page[].
 	count := 0
-	for _, cell := range cells[:len(cells)-1] {
+	rightmost := cells[0].left
+	for _, cell := range cells[1:] {
 		fmt.Printf("check cell starting at %d (page %d)\n", cell.key, cell.left)
-		payload := cell.Bytes()
+		payload := interiorCell(rightmost, cell.key)
+		rightmost = cell.left
 
 		if contentStart-len(payload) < pointer+2 {
 			fmt.Printf("that interior page won't fit!\n")
@@ -86,6 +86,7 @@ func writeTableInterior(page []byte, cells []tableInteriorCell) int {
 	}
 	internal.PutUint16(page[offset+3:], uint16(count))
 	internal.PutUint16(page[offset+5:], uint16(contentStart))
+	internal.PutUint32(page[offset+8:], uint32(rightmost))
 
 	return count + 1 // we count the .rightmost one as "placed"
 }

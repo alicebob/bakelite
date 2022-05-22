@@ -2,6 +2,7 @@ package bakelite
 
 import (
 	"bytes"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -111,4 +112,25 @@ func TestUpdates(t *testing.T) {
 	sqlite(t, file, "SELECT name FROM colors ORDER BY r DESC", "black\nred\nsky blue\nwhite\n")
 	sqlite(t, file, "DELETE FROM colors WHERE r < 200", "")
 	sqlite(t, file, "SELECT name FROM colors", "black\nred\n")
+}
+
+func TestMany(t *testing.T) {
+	// enough rows to have multiple levels of interior pages
+	db := New()
+	var rows [][]any
+	// TODO:! 200_000 crashes this nicely
+	for i := 0; i < 128_000; i++ {
+		rows = append(rows, []any{"r" + strconv.Itoa(i)})
+	}
+
+	ok(t, db.Add("counts", []string{"count"}, rows))
+
+	b := &bytes.Buffer{}
+	ok(t, db.Write(b))
+	file := saveFile(t, b, "many.sqlite")
+
+	sqlite(t, file, ".tables", "counts\n")
+	sqlite(t, file, "SELECT count(*) FROM counts", "128000\n")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=1", "r1\n")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=42", "r42\n")
 }

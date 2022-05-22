@@ -127,6 +127,25 @@ func TestTableInterior(t *testing.T) {
 		leaf := tree.(*internal.TableInterior)
 		eq(t, 13, leaf.Rightmost)
 		eq(t, 1, len(leaf.Cells))
-		eq(t, internal.TableInteriorCell{Left: 12, Key: 42}, leaf.Cells[0])
+		eq(t, internal.TableInteriorCell{Left: 12, Key: 84}, leaf.Cells[0])
+	})
+
+	t.Run("three", func(t *testing.T) {
+		page := make([]byte, pageSize)
+		cells := []tableInteriorCell{
+			{key: 42, left: 12},
+			{key: 84, left: 13},
+			{key: 102, left: 9},
+		}
+		eq(t, 3, writeTableInterior(page, cells))
+
+		// and check our work
+		tree, err := internal.NewBtree(page, false, pageSize)
+		ok(t, err)
+		leaf := tree.(*internal.TableInterior)
+		eq(t, 9, leaf.Rightmost)
+		eq(t, 2, len(leaf.Cells))
+		eq(t, internal.TableInteriorCell{Left: 12, Key: 84}, leaf.Cells[0])
+		eq(t, internal.TableInteriorCell{Left: 13, Key: 102}, leaf.Cells[1])
 	})
 }
