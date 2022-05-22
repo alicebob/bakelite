@@ -1,3 +1,3 @@
 test:
-	rm testdata/*.sqlite
+	rm -f testdata/*.sqlite
 	go test

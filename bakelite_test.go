@@ -2,6 +2,7 @@ package bakelite
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -57,4 +58,29 @@ func TestAFewRows(t *testing.T) {
 	sqlite(t, file, ".tables", "planets\n")
 	sqlite(t, file, "SELECT name FROM planets", "Mercury\nVenus\nEarth\nMars\nJupiter\nSaturn\nUranus\nNeptune\n")
 	sqlite(t, file, "SELECT name FROM planets ORDER BY moons", "Mercury\nVenus\nEarth\nMars\nNeptune\nUranus\nJupiter\nSaturn\n")
+}
+
+func TestOverflow(t *testing.T) {
+	// single table, very long rows.
+	db := New()
+	ok(t, db.Add("planets", []string{"name", "private_key"}, [][]any{
+		{"Mercury", strings.Repeat("a", 10_000)},
+		{"Venus", strings.Repeat("b", 59)},
+		// {"Earth", strings.Repeat("c", 40_000)},
+		// {"Mars", strings.Repeat("d", 123_456)},
+		// {"Jupiter", strings.Repeat("e", 1)},
+		// {"Saturn", strings.Repeat("f", 12)},
+		// {"Uranus", strings.Repeat("g", 8_000)},
+		// {"Neptune", strings.Repeat("h", 75_000)},
+	}))
+
+	b := &bytes.Buffer{}
+	ok(t, db.Write(b))
+	file := saveFile(t, b, "overflow.sqlite")
+
+	sqlite(t, file, ".tables", "planets\n")
+	sqlite(t, file, "SELECT name FROM planets", "Mercury\nVenus\n")
+	// sqlite(t, file, "SELECT name FROM planets", "Mercury\nVenus\nEarth\nMars\nJupiter\nSaturn\nUranus\nNeptune\n")
+	sqlite(t, file, "SELECT name, length(private_key) FROM planets", "Mercury|10000\nVenus|59\n")
+	// sqlite(t, file, "SELECT name, length(private_key) FROM planets", "Mercury\nVenus\nEarth\nMars\nNeptune\nUranus\nJupiter\nSaturn\n")
 }

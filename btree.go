@@ -2,16 +2,16 @@ package bakelite
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 // Write a "leaf table" page. It's on you to make sure the cells fit (for now).
 // Cells need to be ordered.
 // We ignore cell overflow for now.
 // If isPage1 is true we still return a full sized page, but the header starts 100 bytes in (and so there is 100 bytes less available)
-func makeTableLeaf(isPage1 bool, cells []tableLeafCell) ([]byte, error) {
+func makeTableLeaf(page []byte, isPage1 bool, cells []tableLeafCell) error {
 	enc := binary.BigEndian
 
-	page := make([]byte, pageSize)
 	offset := 0
 	if isPage1 {
 		offset = 100
@@ -41,5 +41,5 @@ func makeTableLeaf(isPage1 bool, cells []tableLeafCell) ([]byte, error) {
 		// "0" means 64K, which happens when there are no rows and not isPage1.
 		enc.PutUint16(page[offset+5:], uint16(cellContentStart))
 	}
-	return page, nil
+	return nil
 }

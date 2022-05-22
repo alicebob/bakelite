@@ -7,15 +7,17 @@ import (
 )
 
 func New() *db {
-	return &db{
-		pages: make([]page, 1), // pages[0] is master page
-	}
+	d := &db{}
+	master := d.blankPage() // pages[0] is the master page
+	d.addPage(master)
+	return d
 }
 
 func (d *db) Add(table string, columns []string, rows [][]any) error {
-	page := makeTable(rows)
-	root := len(d.pages) + 1
-	d.pages = append(d.pages, page)
+	root, err := d.storeBtree(rows)
+	if err != nil {
+		return err
+	}
 	d.master = append(d.master, masterRow{
 		typ:      "table",
 		name:     table,
@@ -31,7 +33,7 @@ func (d *db) Write(w io.Writer) error {
 		return err
 	}
 	for _, p := range d.pages {
-		if _, err := w.Write(p.store); err != nil {
+		if _, err := w.Write(p); err != nil {
 			return err
 		}
 	}

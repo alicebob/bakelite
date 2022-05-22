@@ -9,10 +9,11 @@ import (
 
 func TestTableLeaf(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		bs, err := makeTableLeaf(false, nil)
-		ok(t, err)
+		page := make([]byte, pageSize)
+		ok(t, makeTableLeaf(page, false, nil))
 
-		tree, err := internal.NewBtree(bs, false, pageSize)
+		// and check our work
+		tree, err := internal.NewBtree(page, false, pageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, 0, len(leaf.Cells))
@@ -23,10 +24,11 @@ func TestTableLeaf(t *testing.T) {
 			left:    42,
 			payload: []byte("hello world"),
 		}
-		bs, err := makeTableLeaf(false, []tableLeafCell{cell})
-		ok(t, err)
+		page := make([]byte, pageSize)
+		ok(t, makeTableLeaf(page, false, []tableLeafCell{cell}))
 
-		tree, err := internal.NewBtree(bs, false, pageSize)
+		// and check our work
+		tree, err := internal.NewBtree(page, false, pageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, 1, len(leaf.Cells))
@@ -38,10 +40,11 @@ func TestTableLeaf(t *testing.T) {
 			left:    42,
 			payload: []byte("hello world"),
 		}
-		bs, err := makeTableLeaf(true, []tableLeafCell{cell})
-		ok(t, err)
+		page := make([]byte, pageSize)
+		ok(t, makeTableLeaf(page, true, []tableLeafCell{cell}))
 
-		tree, err := internal.NewBtree(bs, true, pageSize)
+		// and check our work
+		tree, err := internal.NewBtree(page, true, pageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, 1, len(leaf.Cells))
@@ -53,14 +56,16 @@ func TestTableLeaf(t *testing.T) {
 		var cells []tableLeafCell
 		for i := 0; i < 10; i++ {
 			cells = append(cells, tableLeafCell{
-				left:    int64(i),
-				payload: payload,
+				left:     i,
+				fullSize: len(payload),
+				payload:  payload,
 			})
 		}
-		bs, err := makeTableLeaf(false, cells)
-		ok(t, err)
+		page := make([]byte, pageSize)
+		ok(t, makeTableLeaf(page, false, cells))
 
-		tree, err := internal.NewBtree(bs, false, pageSize)
+		// and check our work
+		tree, err := internal.NewBtree(page, false, pageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, 10, len(leaf.Cells))

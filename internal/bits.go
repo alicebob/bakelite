@@ -1,5 +1,9 @@
 package internal
 
+import (
+	"encoding/binary"
+)
+
 // Same as encoding.binary.ReadVarInt, but that one is little endian.
 // Returns: the number, bytes needed.
 // Will return (0, -1) if there are not enough bytes available.
@@ -22,26 +26,41 @@ func ReadVarint(b []byte) (int64, int) {
 	}
 }
 
-// taken from Go source
-func PutUvarint(buf []byte, x uint64) int {
-	i := 0
-	for x >= 0x80 {
-		buf[i] = byte(x) | 0x80
-		x >>= 7
+// logic from tool/varint.c
+// buf must be at least 9 bytes long
+func PutUvarint(p []byte, v uint64) int {
+	buf := make([]byte, 9)
+
+	if v&((0xff000000)<<32) != 0 {
+		p[8] = byte(v)
+		v >>= 8
+		for i := 7; i >= 0; i-- {
+			p[i] = byte((v & 0x7f) | 0x80)
+			v >>= 7
+		}
+		return 9
+	}
+
+	n := 0
+	for {
+		buf[n] = byte((v & 0x7f) | 0x80)
+		n++
+		v >>= 7
+		if v == 0 {
+			break
+		}
+	}
+	buf[0] &= 0x7f
+	var i, j int
+	for i, j = 0, n-1; j >= 0; {
+		p[i] = buf[j]
+		j--
 		i++
 	}
-	buf[i] = byte(x)
-	return i + 1
+	return n
 }
 
-// taken from Go source
-func PutVarint(buf []byte, x int64) int {
-	ux := uint64(x) << 1
-	if x < 0 {
-		ux = ^ux
-	}
-	return PutUvarint(buf, ux)
-}
+var PutUint32 = binary.BigEndian.PutUint32
 
 // Read a 24 bits two-complement integer.
 // b needs to be at least 3 bytes long
