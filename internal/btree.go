@@ -34,13 +34,13 @@ type TableLeaf struct {
 	Cells []TableLeafCell
 }
 
-type tableInteriorCell struct {
-	left int
-	key  int64
+type TableInteriorCell struct {
+	Left int
+	Key  int64
 }
-type tableInterior struct {
-	cells     []tableInteriorCell
-	rightmost int
+type TableInterior struct {
+	Cells     []TableInteriorCell
+	Rightmost int
 }
 
 type indexLeaf struct {
@@ -107,21 +107,21 @@ func newInteriorTableBtree(
 	pointers []byte,
 	content []byte,
 	rightmost int,
-) (*tableInterior, error) {
+) (*TableInterior, error) {
 	cells, err := parseCellpointers(count, pointers, len(content))
 	if err != nil {
 		return nil, err
 	}
-	cs := make([]tableInteriorCell, len(cells))
+	cs := make([]TableInteriorCell, len(cells))
 	for i, start := range cells {
 		cs[i], err = parseTableInterior(content[start:])
 		if err != nil {
 			return nil, err
 		}
 	}
-	return &tableInterior{
-		cells:     cs,
-		rightmost: rightmost,
+	return &TableInterior{
+		Cells:     cs,
+		Rightmost: rightmost,
 	}, nil
 }
 
@@ -232,18 +232,18 @@ func parseTableLeaf(c []byte, pageSize int) (TableLeafCell, error) {
 	}, err
 }
 
-func parseTableInterior(c []byte) (tableInteriorCell, error) {
+func parseTableInterior(c []byte) (TableInteriorCell, error) {
 	if len(c) < 4 {
-		return tableInteriorCell{}, ErrCorrupted
+		return TableInteriorCell{}, ErrCorrupted
 	}
 	left := int(binary.BigEndian.Uint32(c[:4]))
 	key, n := ReadVarint(c[4:])
 	if n < 0 {
-		return tableInteriorCell{}, ErrCorrupted
+		return TableInteriorCell{}, ErrCorrupted
 	}
-	return tableInteriorCell{
-		left: left,
-		key:  key,
+	return TableInteriorCell{
+		Left: left,
+		Key:  key,
 	}, nil
 }
 

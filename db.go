@@ -2,9 +2,8 @@ package bakelite
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
-
-	"github.com/alicebob/bakelite/internal"
 )
 
 type page struct {
@@ -13,8 +12,8 @@ type page struct {
 
 type masterRow struct {
 	typ      string // "table", "index"
-	name     string
-	tblName  string // ?
+	name     string // name of the table, index, &c
+	tblName  string // which table an index is for
 	rootpage int
 	sql      string
 }
@@ -37,17 +36,48 @@ func (d *db) blankPage() []byte {
 
 // adds a all the rows of a table to the database. Returns the root ID.
 func (d *db) storeBtree(rows [][]any) (int, error) {
-	cells, err := d.makeCells(rows)
+	cells, err := d.makeLeafCells(rows)
 	if err != nil {
 		return 0, err
 	}
 
-	page := d.blankPage()
-	if err := makeTableLeaf(page, false, cells); err != nil {
-		panic(err)
+	// first fill all the table cell pages
+	var leafCells []tableInteriorCell
+	for {
+		page := d.blankPage()
+		placed := writeTableLeaf(page, false, cells)
+		key := 0
+		if len(cells) > 0 {
+			// 0 cells is valid. The page will end up as .rightmost
+			key = cells[0].left
+		}
+		fmt.Printf("we placed %d rows (leftmost rowid: %d)\n", placed, key)
+		leafCells = append(leafCells, tableInteriorCell{
+			left: d.addPage(page),
+			key:  key,
+		})
+		cells = cells[placed:]
+		if len(cells) == 0 {
+			break
+		}
+	}
+	return d.buildInterior(leafCells), nil
+}
+
+// gets a list of page IDs and stores them in a tree of "interior table" pages.
+// assumes len(pageIDs) > 0
+func (d *db) buildInterior(pageIDs []tableInteriorCell) int {
+	fmt.Printf("buildInterior with %d pages\n", len(pageIDs))
+	if len(pageIDs) == 1 {
+		return pageIDs[0].left
 	}
 
-	return d.addPage(page), nil
+	page := d.blankPage()
+	placed := writeTableInterior(page, pageIDs)
+	if placed != len(pageIDs) {
+		panic("nest me")
+	}
+	return d.addPage(page)
 }
 
 // store arbitrary long overflow in a sequence of linked pages. Returns the root page ID.
@@ -67,7 +97,7 @@ func (d *db) storeOverflow(b []byte) int {
 	return d.addPage(page)
 }
 
-func (d *db) makeCells(rows [][]any) ([]tableLeafCell, error) {
+func (d *db) makeLeafCells(rows [][]any) ([]tableLeafCell, error) {
 	var cells []tableLeafCell
 	for i, row := range rows {
 		rec, err := makeRecord(row)
@@ -77,14 +107,11 @@ func (d *db) makeCells(rows [][]any) ([]tableLeafCell, error) {
 		fullSize := len(rec)
 		maxInPage := pageSize - 35 // defined by sqlite for page leaf cells.
 		maxInCell := calculateCellInPageBytes(int64(fullSize), pageSize, maxInPage)
-		fmt.Printf("makeCells %d is %d (%d)\n", i, fullSize, maxInCell)
 		overflow := 0
 		if len(rec) > maxInCell {
 			overflow = d.storeOverflow(rec[maxInCell:])
-			fmt.Printf("go store overflow: %d\n", overflow)
 			rec = rec[:maxInCell]
 		}
-		fmt.Printf("makeCells %d new: %d (%d)\n", i, len(rec), overflow)
 		cells = append(cells, tableLeafCell{
 			left:     i,
 			fullSize: fullSize,
@@ -95,61 +122,20 @@ func (d *db) makeCells(rows [][]any) ([]tableLeafCell, error) {
 	return cells, nil
 }
 
-type tableLeafCell struct {
-	left     int    // rowID
-	fullSize int    // length with overflow
-	payload  []byte // without overflow
-	overflow int    // page ID, or zero
-}
-
-// returns bytes for a "Table B-Tree Leaf Cell (header 0x0d)"
-//
-// - A varint which is the total number of bytes of payload, including any overflow
-// - A varint which is the integer key, a.k.a. "rowid"
-// - The initial portion of the payload that does not spill to overflow pages.
-// - A 4-byte big-endian integer page number for the first page of the overflow page list - omitted if all payload fits on the b-tree page.
-func (c *tableLeafCell) Bytes() []byte {
-	b := make([]byte, len(c.payload)+(2*9)+4)
-	n := 0
-	n += internal.PutUvarint(b[n:], uint64(c.fullSize))
-	n += internal.PutUvarint(b[n:], uint64(c.left))
-	n += copy(b[n:], c.payload)
-	if c.overflow > 0 {
-		binary.BigEndian.PutUint32(b[n:], uint32(c.overflow))
-		n += 4
-	}
-	return b[:n]
-}
-
-// FIXME: delete this
-func makeCells(rows [][]any) ([]tableLeafCell, error) {
-	var cells []tableLeafCell
-	for i, row := range rows {
-		rec, err := makeRecord(row)
-		if err != nil {
-			return nil, err
-		}
-		cells = append(cells, tableLeafCell{
-			left:     i,
-			fullSize: len(rec),
-			payload:  rec,
-		})
-	}
-	return cells, nil
-}
-
 // "page 1" is the first page(d.page[0]) of the db. It is a leaf page with all the tables in it. The first 100 bytes have the database header.
 // Should be called when all tables have been added and we're about to generate the db file.
 func (d *db) UpdatePage1() error {
 	cells := d.masterCells()
 	page := d.pages[0]
-	err := makeTableLeaf(page, true /* ! */, cells)
-	if err != nil {
-		return err
+	placed := writeTableLeaf(page, true /* ! */, cells)
+	if placed != len(cells) {
+		// FIXME
+		// for the master table we don't add interior cells yet
+		return errors.New("too many tables for now. Fixme.")
 	}
 	h := header(len(d.pages))
 	copy(page, h) // overwrite the first 100 bytes
-	d.pages[0] = page
+	// d.pages[0] = page
 
 	return nil
 }
@@ -165,7 +151,7 @@ func (d *db) masterCells() []tableLeafCell {
 			master.sql,
 		})
 	}
-	cells, err := makeCells(rows)
+	cells, err := d.makeLeafCells(rows)
 	if err != nil {
 		panic(err)
 	}

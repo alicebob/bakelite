@@ -60,7 +60,9 @@ func PutUvarint(p []byte, v uint64) int {
 	return n
 }
 
+var PutUint16 = binary.BigEndian.PutUint16
 var PutUint32 = binary.BigEndian.PutUint32
+var PutUint64 = binary.BigEndian.PutUint64
 
 // Read a 24 bits two-complement integer.
 // b needs to be at least 3 bytes long
