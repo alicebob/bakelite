@@ -103,7 +103,7 @@ func TestTableInterior(t *testing.T) {
 		cells := []tableInteriorCell{
 			{key: 42, left: 12},
 		}
-		eq(t, 1, writeTableInterior(page, cells))
+		eq(t, 1, writeTableInterior(page, false, cells))
 
 		// and check our work
 		tree, err := internal.NewBtree(page, false, PageSize)
@@ -119,7 +119,7 @@ func TestTableInterior(t *testing.T) {
 			{key: 42, left: 12},
 			{key: 84, left: 13},
 		}
-		eq(t, 2, writeTableInterior(page, cells))
+		eq(t, 2, writeTableInterior(page, false, cells))
 
 		// and check our work
 		tree, err := internal.NewBtree(page, false, PageSize)
@@ -137,7 +137,7 @@ func TestTableInterior(t *testing.T) {
 			{key: 84, left: 13},
 			{key: 102, left: 9},
 		}
-		eq(t, 3, writeTableInterior(page, cells))
+		eq(t, 3, writeTableInterior(page, false, cells))
 
 		// and check our work
 		tree, err := internal.NewBtree(page, false, PageSize)

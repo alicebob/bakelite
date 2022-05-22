@@ -26,7 +26,10 @@ func (db *DB) storeBtree(rows [][]any) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	return db.storeCells(cells), nil
+}
 
+func (db *DB) storeCells(cells []tableLeafCell) int {
 	// first fill all the table cell pages...
 	var leafCells []tableInteriorCell
 	for {
@@ -48,7 +51,7 @@ func (db *DB) storeBtree(rows [][]any) (int, error) {
 	}
 
 	// ...then the (possibly skipped, possibly nested) interior pages
-	return db.buildInterior(leafCells), nil
+	return db.buildInterior(leafCells)
 }
 
 // gets a list of page IDs and stores them in a tree of "interior table" pages.
@@ -61,7 +64,7 @@ func (db *DB) buildInterior(cells []tableInteriorCell) int {
 	var leafCells []tableInteriorCell
 	for len(cells) > 0 {
 		page := db.blankPage()
-		placed := writeTableInterior(page, cells)
+		placed := writeTableInterior(page, false, cells)
 		leafCells = append(leafCells, tableInteriorCell{
 			left: db.addPage(page),
 			key:  cells[0].key,
@@ -88,6 +91,7 @@ func (db *DB) storeOverflow(b []byte) int {
 	return db.addPage(page)
 }
 
+// transform all records to a list of leaf cells ready to store. Also deals with overflow.
 func (db *DB) makeLeafCells(rows [][]any) ([]tableLeafCell, error) {
 	var cells []tableLeafCell
 	for i, row := range rows {
@@ -120,11 +124,19 @@ func (db *DB) makeLeafCells(rows [][]any) ([]tableLeafCell, error) {
 func (db *DB) updatePage1() {
 	cells := db.masterCells()
 	page := db.pages[0]
-	placed := writeTableLeaf(page, true /* ! */, cells)
+	placed := writeTableLeaf(page, true, cells)
 	if placed != len(cells) {
-		// FIXME
-		// for the master table we don't add interior cells yet
-		panic("too many tables for now. Fixme.")
+		// If we have just a few tables we're lucky and can fit all master
+		// tables in page[0]. However, it seems that we have too many tables,
+		// so we'll have to go build an interior-cell structure. SQLite can
+		// deal with this case nicely; it's used to moving things around, but
+		// we're not. So what we do is we build the structure in all new pages,
+		// and then link to those from here in a single-record interior page.
+		// SQLite is fine with that.
+		// (we could always build the pages this way, also if they would fit in
+		// the first page, but this more fun)
+		root := db.storeCells(cells)
+		writeTableInterior(page, true, []tableInteriorCell{{left: root, key: 0}})
 	}
 	h := header(len(db.pages))
 	copy(page, h) // overwrite the first 100 bytes

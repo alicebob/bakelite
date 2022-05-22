@@ -51,7 +51,7 @@ func writeTableLeaf(page []byte, isPage1 bool, cells []tableLeafCell) int {
 }
 
 // returns: how many we placed
-func writeTableInterior(page []byte, cells []tableInteriorCell) int {
+func writeTableInterior(page []byte, isPage1 bool, cells []tableInteriorCell) int {
 	// format:
 	// page[0]: type
 	// page[offset + 1,2]: first free block (not relevant)
@@ -60,6 +60,9 @@ func writeTableInterior(page []byte, cells []tableInteriorCell) int {
 	// page[offset + 7]: fragmented free bytes (not relevant)
 	// page[offset + 8..12]: rightmost pointer
 	offset := 0
+	if isPage1 {
+		offset += 100
+	}
 	page[offset] = 0x05 // interior table
 
 	contentStart := len(page)

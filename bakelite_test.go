@@ -2,6 +2,7 @@ package bakelite
 
 import (
 	"bytes"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -114,7 +115,7 @@ func TestUpdates(t *testing.T) {
 	sqlite(t, file, "SELECT name FROM colors", "black\nred\n")
 }
 
-func TestMany(t *testing.T) {
+func TestManyRows(t *testing.T) {
 	// enough rows to have multiple levels of interior pages
 	db := New()
 	var rows [][]any
@@ -127,7 +128,7 @@ func TestMany(t *testing.T) {
 
 	b := &bytes.Buffer{}
 	ok(t, db.Write(b))
-	file := saveFile(t, b, "many.sqlite")
+	file := saveFile(t, b, "manyrows.sqlite")
 
 	sqlite(t, file, ".tables", "counts\n")
 	sqlite(t, file, "SELECT count(*) FROM counts", "200000\n")
@@ -140,4 +141,21 @@ func TestMany(t *testing.T) {
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=199999", "r199999\n")
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=200000", "")
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=200001", "")
+}
+
+func TestManyTables(t *testing.T) {
+	// Enough tables to overflow page 1.
+	db := New()
+	for i := 42; i < 100; i++ {
+		tab := fmt.Sprintf("table_%d", i)
+		ok(t, db.Add(tab, []string{"chairs"}, [][]any{{1}, {2}, {3}, {4}, {5}}))
+	}
+
+	b := &bytes.Buffer{}
+	ok(t, db.Write(b))
+	file := saveFile(t, b, "manytables.sqlite")
+
+	// sqlite(t, file, ".tables", "counts\n")
+	sqlite(t, file, "SELECT count(*) FROM table_42", "5\n")
+	sqlite(t, file, "SELECT sum(chairs) FROM table_87", "15\n")
 }

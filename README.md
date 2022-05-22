@@ -37,12 +37,11 @@ file.
 
 # status
 
-Not ready for production. Right now it can write basic files and sqlite is
-happy with those files, but there are some major basic cases missing.
+Not ready for production. It can write files and SQLite is
+happy with those files, but it's still early code.
 
 main todos:
   - row encoding (we only deal with ints and strings)
-  - deal with a larger number of tables (1st page mess)
   - hasn't seen a profiler. Got to make it work correctly first
   - this keeps everything in memory multiple times (and doesn't care about allocations)
   - you need to hand in all the data at once. Which won't work if you want to
