@@ -83,3 +83,32 @@ func TestOverflow(t *testing.T) {
 	sqlite(t, file, "SELECT name FROM planets", "Mercury\nVenus\nEarth\nMars\nJupiter\nSaturn\nUranus\nNeptune\n")
 	sqlite(t, file, "SELECT name, length(private_key) FROM planets", "Mercury|10000\nVenus|59\nEarth|40000\nMars|123456\nJupiter|1\nSaturn|12\nUranus|8000\nNeptune|75000\n")
 }
+
+func TestUpdates(t *testing.T) {
+	// two tables, and then update them, to see what sqlite thinks of it.
+	db := New()
+	ok(t, db.Add("planets", []string{"name", "moons"}, [][]any{
+		{"Mercury", 0},
+		{"Venus", 0},
+		{"Earth", 1},
+		{"Mars", 2},
+	}))
+	ok(t, db.Add("colors", []string{"name", "r", "g", "b"}, [][]any{
+		{"white", 0, 0, 0},
+		{"black", 256, 256, 256},
+		{"red", 256, 0, 0},
+	}))
+
+	b := &bytes.Buffer{}
+	ok(t, db.Write(b))
+	file := saveFile(t, b, "updates.sqlite")
+
+	sqlite(t, file, ".tables", "colors   planets\n")
+	sqlite(t, file, "SELECT name FROM planets", "Mercury\nVenus\nEarth\nMars\n")
+	sqlite(t, file, "SELECT name FROM colors", "white\nblack\nred\n")
+
+	sqlite(t, file, "INSERT INTO colors (name, r, g, b) VALUES ('sky blue', 135, 206, 235)", "")
+	sqlite(t, file, "SELECT name FROM colors ORDER BY r DESC", "black\nred\nsky blue\nwhite\n")
+	sqlite(t, file, "DELETE FROM colors WHERE r < 200", "")
+	sqlite(t, file, "SELECT name FROM colors", "black\nred\n")
+}
