@@ -9,11 +9,11 @@ import (
 
 func TestTableLeaf(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		page := make([]byte, pageSize)
+		page := make([]byte, PageSize)
 		eq(t, 0, writeTableLeaf(page, false, nil))
 
 		// and check our work
-		tree, err := internal.NewBtree(page, false, pageSize)
+		tree, err := internal.NewBtree(page, false, PageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, 0, len(leaf.Cells))
@@ -24,11 +24,11 @@ func TestTableLeaf(t *testing.T) {
 			left:    42,
 			payload: []byte("hello world"),
 		}
-		page := make([]byte, pageSize)
+		page := make([]byte, PageSize)
 		eq(t, 1, writeTableLeaf(page, false, []tableLeafCell{cell}))
 
 		// and check our work
-		tree, err := internal.NewBtree(page, false, pageSize)
+		tree, err := internal.NewBtree(page, false, PageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, 1, len(leaf.Cells))
@@ -40,11 +40,11 @@ func TestTableLeaf(t *testing.T) {
 			left:    42,
 			payload: []byte("hello world"),
 		}
-		page := make([]byte, pageSize)
+		page := make([]byte, PageSize)
 		eq(t, 1, writeTableLeaf(page, true, []tableLeafCell{cell}))
 
 		// and check our work
-		tree, err := internal.NewBtree(page, true, pageSize)
+		tree, err := internal.NewBtree(page, true, PageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, 1, len(leaf.Cells))
@@ -61,11 +61,11 @@ func TestTableLeaf(t *testing.T) {
 				payload:  payload,
 			})
 		}
-		page := make([]byte, pageSize)
+		page := make([]byte, PageSize)
 		eq(t, 10, writeTableLeaf(page, false, cells))
 
 		// and check our work
-		tree, err := internal.NewBtree(page, false, pageSize)
+		tree, err := internal.NewBtree(page, false, PageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, 10, len(leaf.Cells))
@@ -84,11 +84,11 @@ func TestTableLeaf(t *testing.T) {
 			})
 		}
 		expect := 4 // =~ page size / 1K
-		page := make([]byte, pageSize)
+		page := make([]byte, PageSize)
 		eq(t, expect, writeTableLeaf(page, false, cells))
 
 		// and check our work
-		tree, err := internal.NewBtree(page, false, pageSize)
+		tree, err := internal.NewBtree(page, false, PageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, expect, len(leaf.Cells))
@@ -99,14 +99,14 @@ func TestTableLeaf(t *testing.T) {
 
 func TestTableInterior(t *testing.T) {
 	t.Run("single", func(t *testing.T) {
-		page := make([]byte, pageSize)
+		page := make([]byte, PageSize)
 		cells := []tableInteriorCell{
 			{key: 42, left: 12},
 		}
 		eq(t, 1, writeTableInterior(page, cells))
 
 		// and check our work
-		tree, err := internal.NewBtree(page, false, pageSize)
+		tree, err := internal.NewBtree(page, false, PageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableInterior)
 		eq(t, 0, len(leaf.Cells))
@@ -114,7 +114,7 @@ func TestTableInterior(t *testing.T) {
 	})
 
 	t.Run("two", func(t *testing.T) {
-		page := make([]byte, pageSize)
+		page := make([]byte, PageSize)
 		cells := []tableInteriorCell{
 			{key: 42, left: 12},
 			{key: 84, left: 13},
@@ -122,7 +122,7 @@ func TestTableInterior(t *testing.T) {
 		eq(t, 2, writeTableInterior(page, cells))
 
 		// and check our work
-		tree, err := internal.NewBtree(page, false, pageSize)
+		tree, err := internal.NewBtree(page, false, PageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableInterior)
 		eq(t, 13, leaf.Rightmost)
@@ -131,7 +131,7 @@ func TestTableInterior(t *testing.T) {
 	})
 
 	t.Run("three", func(t *testing.T) {
-		page := make([]byte, pageSize)
+		page := make([]byte, PageSize)
 		cells := []tableInteriorCell{
 			{key: 42, left: 12},
 			{key: 84, left: 13},
@@ -140,7 +140,7 @@ func TestTableInterior(t *testing.T) {
 		eq(t, 3, writeTableInterior(page, cells))
 
 		// and check our work
-		tree, err := internal.NewBtree(page, false, pageSize)
+		tree, err := internal.NewBtree(page, false, PageSize)
 		ok(t, err)
 		leaf := tree.(*internal.TableInterior)
 		eq(t, 9, leaf.Rightmost)

@@ -5,16 +5,12 @@ import (
 	"encoding/binary"
 )
 
-const (
-	pageSize = 1 << 12 // 16
-)
-
 var (
 	headerMagic = "SQLite format 3\x00"
 )
 
 func header(pageCount int) []byte {
-	ps := pageSize
+	ps := PageSize
 	if ps == 1<<16 {
 		ps = 1
 	}

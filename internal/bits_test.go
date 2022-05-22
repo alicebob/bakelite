@@ -37,3 +37,13 @@ func TestVarint(t *testing.T) {
 	test(-1)
 	test(-1000000)
 }
+
+func BenchmarkVarint(b *testing.B) {
+	buf := make([]byte, 10)
+	for i := 0; i < b.N; i++ {
+		enc := PutUvarint(buf, uint64(12345999999))
+		if have, want := 5, enc; have != want {
+			b.Errorf("bytes: have %d, want %d", have, want)
+		}
+	}
+}

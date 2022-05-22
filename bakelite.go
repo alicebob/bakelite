@@ -6,19 +6,37 @@ import (
 	"strings"
 )
 
-func New() *db {
-	d := &db{}
-	master := d.blankPage() // pages[0] is the master page
-	d.addPage(master)
-	return d
+const (
+	// database file page size
+	PageSize = 1 << 12
+)
+
+// Create a new, in memory, db.
+func New() *DB {
+	db := &DB{}
+	db.addPage(db.blankPage()) // pages[0] is the master page
+	return db
 }
 
-func (d *db) Add(table string, columns []string, rows [][]any) error {
-	root, err := d.storeBtree(rows)
+// Add a new table with the given columns and rows.
+// Table and column names should probably be lowercase simple strings.
+// The length of every row should be allowed to be shorter than the number of
+// columns, according to the sqlite docs. What happens when they are longer is
+// not defined.
+// Don't add the same table twice.
+// Don't use this from multiple Go routines at the same time.
+//
+// Supported Go datatypes:
+//   - int
+//   - string
+//   - nil
+// (yup, that's all for now)
+func (db *DB) Add(table string, columns []string, rows [][]any) error {
+	root, err := db.storeBtree(rows)
 	if err != nil {
 		return err
 	}
-	d.master = append(d.master, masterRow{
+	db.master = append(db.master, masterRow{
 		typ:      "table",
 		name:     table,
 		tblName:  table,
@@ -28,11 +46,11 @@ func (d *db) Add(table string, columns []string, rows [][]any) error {
 	return nil
 }
 
-func (d *db) Write(w io.Writer) error {
-	if err := d.UpdatePage1(); err != nil {
-		return err
-	}
-	for _, p := range d.pages {
+// Write the whole file to the writer. You probably don't want to use the db again.
+func (db *DB) Write(w io.Writer) error {
+	db.updatePage1()
+
+	for _, p := range db.pages {
 		if _, err := w.Write(p); err != nil {
 			return err
 		}
@@ -46,4 +64,12 @@ func sqlCreate(table string, columns []string) string {
 		table,
 		strings.Join(columns, ", "),
 	)
+}
+
+type masterRow struct {
+	typ      string // "table", "index"
+	name     string // name of the table, index, &c
+	tblName  string // which table an index is for
+	rootpage int
+	sql      string
 }

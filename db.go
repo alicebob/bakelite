@@ -2,40 +2,27 @@ package bakelite
 
 import (
 	"encoding/binary"
-	"errors"
 )
 
-type page struct {
-	store []byte // every page will be of size pageSize
-}
-
-type masterRow struct {
-	typ      string // "table", "index"
-	name     string // name of the table, index, &c
-	tblName  string // which table an index is for
-	rootpage int
-	sql      string
-}
-
-type db struct {
-	pages  [][]byte    // all these are of the correct length (pageSize)
+type DB struct {
+	pages  [][]byte    // all these are of the correct length (PageSize)
 	master []masterRow // one entry per table, "sqlite_master" table, which is stored at "page 1" (pages[0])
 }
 
+func (db *DB) blankPage() []byte {
+	return make([]byte, PageSize)
+}
+
 // add a page and return its ID.
-func (d *db) addPage(p []byte) int {
-	id := len(d.pages) + 1
-	d.pages = append(d.pages, p)
+func (db *DB) addPage(p []byte) int {
+	id := len(db.pages) + 1
+	db.pages = append(db.pages, p)
 	return id
 }
 
-func (d *db) blankPage() []byte {
-	return make([]byte, pageSize)
-}
-
-// adds a all the rows of a table to the database. Returns the root ID.
-func (d *db) storeBtree(rows [][]any) (int, error) {
-	cells, err := d.makeLeafCells(rows)
+// adds all the rows of a table to the database. Returns the root ID.
+func (db *DB) storeBtree(rows [][]any) (int, error) {
+	cells, err := db.makeLeafCells(rows)
 	if err != nil {
 		return 0, err
 	}
@@ -43,7 +30,7 @@ func (d *db) storeBtree(rows [][]any) (int, error) {
 	// first fill all the table cell pages...
 	var leafCells []tableInteriorCell
 	for {
-		page := d.blankPage()
+		page := db.blankPage()
 		placed := writeTableLeaf(page, false, cells)
 		key := 0
 		if len(cells) > 0 {
@@ -51,7 +38,7 @@ func (d *db) storeBtree(rows [][]any) (int, error) {
 			key = cells[0].left
 		}
 		leafCells = append(leafCells, tableInteriorCell{
-			left: d.addPage(page),
+			left: db.addPage(page),
 			key:  key,
 		})
 		cells = cells[placed:]
@@ -61,47 +48,47 @@ func (d *db) storeBtree(rows [][]any) (int, error) {
 	}
 
 	// ...then the (possibly skipped, possibly nested) interior pages
-	return d.buildInterior(leafCells), nil
+	return db.buildInterior(leafCells), nil
 }
 
 // gets a list of page IDs and stores them in a tree of "interior table" pages.
 // assumes len(pageIDs) > 0
-func (d *db) buildInterior(cells []tableInteriorCell) int {
+func (db *DB) buildInterior(cells []tableInteriorCell) int {
 	if len(cells) == 1 {
 		return cells[0].left
 	}
 
 	var leafCells []tableInteriorCell
 	for len(cells) > 0 {
-		page := d.blankPage()
+		page := db.blankPage()
 		placed := writeTableInterior(page, cells)
 		leafCells = append(leafCells, tableInteriorCell{
-			left: d.addPage(page),
+			left: db.addPage(page),
 			key:  cells[0].key,
 		})
 		cells = cells[placed:]
 	}
-	return d.buildInterior(leafCells)
+	return db.buildInterior(leafCells)
 }
 
 // store arbitrary long overflow in a sequence of linked pages. Returns the root page ID.
-func (d *db) storeOverflow(b []byte) int {
+func (db *DB) storeOverflow(b []byte) int {
 	// First 4 bytes are the page ID of the next page, or 0.
-	page := d.blankPage()
+	page := db.blankPage()
 
-	if len(b) < pageSize-4 {
+	if len(b) < PageSize-4 {
 		copy(page[4:], b)
-		return d.addPage(page)
+		return db.addPage(page)
 	}
 
-	car, cdr := b[:pageSize-4], b[pageSize-4:]
-	nextID := d.storeOverflow(cdr)
+	car, cdr := b[:PageSize-4], b[PageSize-4:]
+	nextID := db.storeOverflow(cdr)
 	binary.BigEndian.PutUint32(page, uint32(nextID))
 	copy(page[4:], car)
-	return d.addPage(page)
+	return db.addPage(page)
 }
 
-func (d *db) makeLeafCells(rows [][]any) ([]tableLeafCell, error) {
+func (db *DB) makeLeafCells(rows [][]any) ([]tableLeafCell, error) {
 	var cells []tableLeafCell
 	for i, row := range rows {
 		rec, err := makeRecord(row)
@@ -109,11 +96,11 @@ func (d *db) makeLeafCells(rows [][]any) ([]tableLeafCell, error) {
 			return nil, err
 		}
 		fullSize := len(rec)
-		maxInPage := pageSize - 35 // defined by sqlite for page leaf cells.
-		maxInCell := calculateCellInPageBytes(int64(fullSize), pageSize, maxInPage)
+		maxInPage := PageSize - 35 // defined by sqlite for page leaf cells.
+		maxInCell := calculateCellInPageBytes(int64(fullSize), PageSize, maxInPage)
 		overflow := 0
 		if len(rec) > maxInCell {
-			overflow = d.storeOverflow(rec[maxInCell:])
+			overflow = db.storeOverflow(rec[maxInCell:])
 			rec = rec[:maxInCell]
 		}
 		cells = append(cells, tableLeafCell{
@@ -126,27 +113,26 @@ func (d *db) makeLeafCells(rows [][]any) ([]tableLeafCell, error) {
 	return cells, nil
 }
 
-// "page 1" is the first page(d.page[0]) of the db. It is a leaf page with all the tables in it. The first 100 bytes have the database header.
-// Should be called when all tables have been added and we're about to generate the db file.
-func (d *db) UpdatePage1() error {
-	cells := d.masterCells()
-	page := d.pages[0]
+// "page 1" is the first page (db.page[0]) of the db. It is a leaf page with
+// all the tables in it. The first 100 bytes have the database header.
+// updatePage1() should be called when all tables have been added and we're
+// about to generate the db file.
+func (db *DB) updatePage1() {
+	cells := db.masterCells()
+	page := db.pages[0]
 	placed := writeTableLeaf(page, true /* ! */, cells)
 	if placed != len(cells) {
 		// FIXME
 		// for the master table we don't add interior cells yet
-		return errors.New("too many tables for now. Fixme.")
+		panic("too many tables for now. Fixme.")
 	}
-	h := header(len(d.pages))
+	h := header(len(db.pages))
 	copy(page, h) // overwrite the first 100 bytes
-	// d.pages[0] = page
-
-	return nil
 }
 
-func (d *db) masterCells() []tableLeafCell {
+func (db *DB) masterCells() []tableLeafCell {
 	var rows [][]any
-	for _, master := range d.master {
+	for _, master := range db.master {
 		rows = append(rows, []any{
 			master.typ,
 			master.name,
@@ -155,7 +141,7 @@ func (d *db) masterCells() []tableLeafCell {
 			master.sql,
 		})
 	}
-	cells, err := d.makeLeafCells(rows)
+	cells, err := db.makeLeafCells(rows)
 	if err != nil {
 		panic(err)
 	}

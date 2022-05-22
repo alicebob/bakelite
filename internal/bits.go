@@ -29,8 +29,6 @@ func ReadVarint(b []byte) (int64, int) {
 // logic from tool/varint.c
 // buf must be at least 9 bytes long
 func PutUvarint(p []byte, v uint64) int {
-	buf := make([]byte, 9)
-
 	if v&((0xff000000)<<32) != 0 {
 		p[8] = byte(v)
 		v >>= 8
@@ -41,7 +39,10 @@ func PutUvarint(p []byte, v uint64) int {
 		return 9
 	}
 
-	n := 0
+	var (
+		n   = 0
+		buf = [9]byte{}
+	)
 	for {
 		buf[n] = byte((v & 0x7f) | 0x80)
 		n++
@@ -51,8 +52,7 @@ func PutUvarint(p []byte, v uint64) int {
 		}
 	}
 	buf[0] &= 0x7f
-	var i, j int
-	for i, j = 0, n-1; j >= 0; {
+	for i, j := 0, n-1; j >= 0; {
 		p[i] = buf[j]
 		j--
 		i++
