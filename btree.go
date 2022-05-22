@@ -1,8 +1,6 @@
 package bakelite
 
 import (
-	"fmt"
-
 	"github.com/alicebob/bakelite/internal"
 )
 
@@ -34,7 +32,6 @@ func writeTableLeaf(page []byte, isPage1 bool, cells []tableLeafCell) int {
 		payload := cell.Bytes()
 
 		if contentStart-len(payload) < pointer+2 {
-			fmt.Printf("that leaf won't fit!\n")
 			break
 		}
 
@@ -53,6 +50,7 @@ func writeTableLeaf(page []byte, isPage1 bool, cells []tableLeafCell) int {
 	return count
 }
 
+// returns: how many we placed
 func writeTableInterior(page []byte, cells []tableInteriorCell) int {
 	// format:
 	// page[0]: type
@@ -69,12 +67,10 @@ func writeTableInterior(page []byte, cells []tableInteriorCell) int {
 	count := 0
 	rightmost := cells[0].left
 	for _, cell := range cells[1:] {
-		fmt.Printf("check cell starting at %d (page %d)\n", cell.key, cell.left)
 		payload := interiorCell(rightmost, cell.key)
 		rightmost = cell.left
 
 		if contentStart-len(payload) < pointer+2 {
-			fmt.Printf("that interior page won't fit!\n")
 			break
 		}
 

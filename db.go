@@ -3,7 +3,6 @@ package bakelite
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 )
 
 type page struct {
@@ -41,7 +40,7 @@ func (d *db) storeBtree(rows [][]any) (int, error) {
 		return 0, err
 	}
 
-	// first fill all the table cell pages
+	// first fill all the table cell pages...
 	var leafCells []tableInteriorCell
 	for {
 		page := d.blankPage()
@@ -51,7 +50,6 @@ func (d *db) storeBtree(rows [][]any) (int, error) {
 			// 0 cells is valid. The page will end up as .rightmost
 			key = cells[0].left
 		}
-		fmt.Printf("we placed %d rows (leftmost rowid: %d)\n", placed, key)
 		leafCells = append(leafCells, tableInteriorCell{
 			left: d.addPage(page),
 			key:  key,
@@ -61,23 +59,29 @@ func (d *db) storeBtree(rows [][]any) (int, error) {
 			break
 		}
 	}
+
+	// ...then the (possibly skipped, possibly nested) interior pages
 	return d.buildInterior(leafCells), nil
 }
 
 // gets a list of page IDs and stores them in a tree of "interior table" pages.
 // assumes len(pageIDs) > 0
-func (d *db) buildInterior(pageIDs []tableInteriorCell) int {
-	fmt.Printf("buildInterior with %d pages\n", len(pageIDs))
-	if len(pageIDs) == 1 {
-		return pageIDs[0].left
+func (d *db) buildInterior(cells []tableInteriorCell) int {
+	if len(cells) == 1 {
+		return cells[0].left
 	}
 
-	page := d.blankPage()
-	placed := writeTableInterior(page, pageIDs)
-	if placed != len(pageIDs) {
-		panic("nest me")
+	var leafCells []tableInteriorCell
+	for len(cells) > 0 {
+		page := d.blankPage()
+		placed := writeTableInterior(page, cells)
+		leafCells = append(leafCells, tableInteriorCell{
+			left: d.addPage(page),
+			key:  cells[0].key,
+		})
+		cells = cells[placed:]
 	}
-	return d.addPage(page)
+	return d.buildInterior(leafCells)
 }
 
 // store arbitrary long overflow in a sequence of linked pages. Returns the root page ID.

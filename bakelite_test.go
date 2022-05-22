@@ -118,8 +118,8 @@ func TestMany(t *testing.T) {
 	// enough rows to have multiple levels of interior pages
 	db := New()
 	var rows [][]any
-	// TODO:! 200_000 crashes this nicely
-	for i := 0; i < 128_000; i++ {
+	// 128_000 uses a single level of interior pages, but that's no fun
+	for i := 0; i < 200_000; i++ {
 		rows = append(rows, []any{"r" + strconv.Itoa(i)})
 	}
 
@@ -130,7 +130,14 @@ func TestMany(t *testing.T) {
 	file := saveFile(t, b, "many.sqlite")
 
 	sqlite(t, file, ".tables", "counts\n")
-	sqlite(t, file, "SELECT count(*) FROM counts", "128000\n")
+	sqlite(t, file, "SELECT count(*) FROM counts", "200000\n")
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=1", "r1\n")
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=42", "r42\n")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=100", "r100\n")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=1000", "r1000\n")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=10000", "r10000\n")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=100000", "r100000\n")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=199999", "r199999\n")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=200000", "")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=200001", "")
 }
