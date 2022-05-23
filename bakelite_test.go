@@ -3,6 +3,7 @@ package bakelite
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -158,4 +159,50 @@ func TestManyTables(t *testing.T) {
 	// sqlite(t, file, ".tables", "counts\n")
 	sqlite(t, file, "SELECT count(*) FROM table_42", "5\n")
 	sqlite(t, file, "SELECT sum(chairs) FROM table_87", "15\n")
+}
+
+func TestHuge(t *testing.T) {
+	if os.Getenv("HUGE") == "" {
+		t.Skip("not huge")
+	}
+
+	n := 2_000 // much more and I get OOM
+
+	var (
+		db      = New()
+		rows    [][]any
+		payload = strings.Repeat("x", 512_000) // 1/3 of a floppydisk
+	)
+	for i := 0; i < n; i++ {
+		rows = append(rows, []any{payload, payload})
+	}
+	ok(t, db.Add("exes", []string{"xes", "axes"}, rows))
+
+	b := &bytes.Buffer{}
+	ok(t, db.Write(b))
+	file := saveFile(t, b, "huge.sqlite")
+
+	sqlite(t, file, ".tables", "exes\n")
+	sqlite(t, file, "SELECT count(*) FROM exes", fmt.Sprintf("%d\n", n))
+}
+
+func BenchmarkCreate(b *testing.B) {
+	payload := strings.Repeat("x", 512)
+	n := 4000
+	var rows [][]any
+	for i := 0; i < n; i++ {
+		rows = append(rows, []any{payload, 12, 42, payload})
+	}
+
+	for i := 0; i < b.N; i++ {
+		db := New()
+
+		ok(b, db.Add("exes", []string{"xes", "axes"}, rows))
+
+		buf := &bytes.Buffer{}
+		ok(b, db.Write(buf))
+		file := saveFile(b, buf, "bench.sqlite")
+
+		sqlite(b, file, "SELECT count(*) FROM exes", fmt.Sprintf("%d\n", n))
+	}
 }
