@@ -29,7 +29,7 @@ func (db *DB) storeTable(source *recordSource) int {
 		cells := collectTableLeaf(isPage1, source)
 		firstKey := 0
 		if len(cells) > 0 {
-			firstKey = cells[0].left
+			firstKey = cells[0].rowID
 		}
 
 		page := db.blankPage()
@@ -84,8 +84,8 @@ func (db *DB) storeOverflow(b []byte) int {
 	return db.addPage(page)
 }
 
-// transform a record a leaf cell ready to store. Deals with overflow.
-func (db *DB) makeLeafCell(rowID int, rec []byte) *tableLeafCell {
+// transform a record to a leaf cell ready to store. Deals with overflow.
+func (db *DB) makeLeafCell(rowID int, rec []byte) tableLeafCell {
 	fullSize := len(rec)
 	maxInPage := cellPayload(rec)
 	overflow := 0
@@ -93,12 +93,7 @@ func (db *DB) makeLeafCell(rowID int, rec []byte) *tableLeafCell {
 		overflow = db.storeOverflow(rec[maxInPage:])
 		rec = rec[:maxInPage]
 	}
-	return &tableLeafCell{
-		left:     rowID,
-		fullSize: fullSize,
-		payload:  rec,
-		overflow: overflow,
-	}
+	return leafCell(rowID, fullSize, rec, overflow)
 }
 
 // "page 1" is the first page (db.page[0]) of the db. It is a leaf page with
@@ -130,7 +125,7 @@ func (db *DB) updatePage1() {
 		writeTableLeaf(page, false, cells)
 		pageID := db.addPage(page)
 
-		firstKey := source.Peek().left
+		firstKey := source.Peek().rowID
 		restRootID := db.storeTable(source)
 
 		writeTableInterior(page1, true, []tableInteriorCell{

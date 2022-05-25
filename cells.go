@@ -5,10 +5,8 @@ import (
 )
 
 type tableLeafCell struct {
-	left     int    // rowID
-	fullSize int    // length with overflow
-	payload  []byte // without overflow
-	overflow int    // page ID, or zero
+	rowID   int    // rowID
+	payload []byte // what's stored in the leaf, see leafCell()
 }
 
 type tableInteriorCell struct {
@@ -22,17 +20,21 @@ type tableInteriorCell struct {
 // - A varint which is the integer key, a.k.a. "rowid"
 // - The initial portion of the payload that does not spill to overflow pages.
 // - A 4-byte big-endian integer page number for the first page of the overflow page list - omitted if all payload fits on the b-tree page.
-func (c *tableLeafCell) Bytes() []byte {
-	b := make([]byte, len(c.payload)+(2*9)+4)
+func leafCell(rowID int, fullSize int, payload []byte, overflowPageID int) tableLeafCell {
+	b := make([]byte, len(payload)+(2*9)+4)
 	n := 0
-	n += internal.PutUvarint(b[n:], uint64(c.fullSize))
-	n += internal.PutUvarint(b[n:], uint64(c.left))
-	n += copy(b[n:], c.payload)
-	if c.overflow > 0 {
-		internal.PutUint32(b[n:], uint32(c.overflow))
+	n += internal.PutUvarint(b[n:], uint64(fullSize))
+	n += internal.PutUvarint(b[n:], uint64(rowID))
+	n += copy(b[n:], payload)
+	if overflowPageID > 0 {
+		internal.PutUint32(b[n:], uint32(overflowPageID))
 		n += 4
 	}
-	return b[:n]
+
+	return tableLeafCell{
+		rowID:   rowID,
+		payload: b[:n],
+	}
 }
 
 // returns the bytes for a "Table B-Tree Interior Cell (header 0x05)"

@@ -6,18 +6,19 @@ import (
 
 // read as many leafs from source which still fit in a single leaf page
 func collectTableLeaf(isPage1 bool, source *recordSource) []tableLeafCell {
-	var ls []tableLeafCell
 	left := PageSize
 	if isPage1 {
 		left -= 100
 	}
 	left -= 8 // header
+
+	var ls []tableLeafCell
 	for {
 		next := source.Peek()
 		if next == nil {
 			break
 		}
-		needed := 2 + len(next.Bytes()) // FIXME: cache/use this. Now we do it twice
+		needed := 2 + len(next.payload)
 		if left < needed {
 			break
 		}
@@ -52,7 +53,7 @@ func writeTableLeaf(page []byte, isPage1 bool, cells []tableLeafCell) {
 	contentStart := len(page)
 	pointer := offset + 8 // where are we writing cell pointers to in page[].
 	for _, cell := range cells {
-		payload := cell.Bytes()
+		payload := cell.payload
 		contentStart -= len(payload)
 		copy(page[contentStart:], payload)
 		internal.PutUint16(page[pointer:], uint16(contentStart))
@@ -104,9 +105,4 @@ func writeTableInterior(page []byte, isPage1 bool, cells []tableInteriorCell) in
 	internal.PutUint32(page[offset+8:], uint32(rightmost))
 
 	return count + 1 // we count the .rightmost one as "placed"
-}
-
-func cellPayload(payload []byte) int {
-	maxInPage := PageSize - 35 // defined by sqlite for page leaf cells.
-	return calculateCellInPageBytes(int64(len(payload)), PageSize, maxInPage)
 }

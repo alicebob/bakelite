@@ -28,7 +28,7 @@ func (r *recordSource) Peek() *tableLeafCell {
 
 		rec, _ := makeRecord(row) // FIXME: err
 		cell := r.db.makeLeafCell(r.rowID, rec)
-		r.peek = cell
+		r.peek = &cell
 		r.rowID++
 	}
 	return r.peek

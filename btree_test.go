@@ -20,10 +20,8 @@ func TestTableLeaf(t *testing.T) {
 	})
 
 	t.Run("single row", func(t *testing.T) {
-		cell := tableLeafCell{
-			left:    42,
-			payload: []byte("hello world"),
-		}
+		payload := []byte("hello world")
+		cell := leafCell(42, len(payload), payload, 0)
 		page := make([]byte, PageSize)
 		writeTableLeaf(page, false, []tableLeafCell{cell})
 
@@ -32,14 +30,12 @@ func TestTableLeaf(t *testing.T) {
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, 1, len(leaf.Cells))
-		eq(t, cell.payload, leaf.Cells[0].Payload.Payload)
+		eq(t, payload, leaf.Cells[0].Payload.Payload)
 	})
 
 	t.Run("special page 1", func(t *testing.T) {
-		cell := tableLeafCell{
-			left:    42,
-			payload: []byte("hello world"),
-		}
+		payload := []byte("hello world")
+		cell := leafCell(42, len(payload), payload, 0)
 		page := make([]byte, PageSize)
 		writeTableLeaf(page, true, []tableLeafCell{cell})
 
@@ -48,18 +44,14 @@ func TestTableLeaf(t *testing.T) {
 		ok(t, err)
 		leaf := tree.(*internal.TableLeaf)
 		eq(t, 1, len(leaf.Cells))
-		eq(t, cell.payload, leaf.Cells[0].Payload.Payload)
+		eq(t, payload, leaf.Cells[0].Payload.Payload)
 	})
 
 	t.Run("bunch of rows", func(t *testing.T) {
 		payload := []byte(strings.Repeat("hello world", 4))
 		var cells []tableLeafCell
 		for i := 0; i < 10; i++ {
-			cells = append(cells, tableLeafCell{
-				left:     i,
-				fullSize: len(payload),
-				payload:  payload,
-			})
+			cells = append(cells, leafCell(i, len(payload), payload, 0))
 		}
 		page := make([]byte, PageSize)
 		writeTableLeaf(page, false, cells)
@@ -77,11 +69,7 @@ func TestTableLeaf(t *testing.T) {
 		payload := []byte(strings.Repeat("helloworld", 100)) // 1K
 		var cells []tableLeafCell
 		for i := 0; i < 4; i++ {
-			cells = append(cells, tableLeafCell{
-				left:     i,
-				fullSize: len(payload),
-				payload:  payload,
-			})
+			cells = append(cells, leafCell(i, len(payload), payload, 0))
 		}
 		page := make([]byte, PageSize)
 		writeTableLeaf(page, false, cells)
