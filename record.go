@@ -3,18 +3,19 @@ package bakelite
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/alicebob/bakelite/internal"
 )
 
 // makeRecord encodes a record (row) as bytes.
-func makeRecord(cols []interface{}) ([]byte, error) {
+func makeRecord(row []any) ([]byte, error) {
 	var (
 		header = make([]byte, 1000)
 		p      = 0 // where we are in header[p]
 		body   = &bytes.Buffer{}
 	)
-	for _, col := range cols {
+	for _, col := range row {
 		switch v := col.(type) {
 		case int:
 			switch v {
@@ -36,7 +37,7 @@ func makeRecord(cols []interface{}) ([]byte, error) {
 		case nil:
 			p += internal.PutUvarint(header[p:], 0)
 		default:
-			panic("unhandled type, probably nice if you add support")
+			return nil, fmt.Errorf("unhandled type %t, probably nice if you add support", col)
 		}
 	}
 	ret := make([]byte, 1+p+body.Len())

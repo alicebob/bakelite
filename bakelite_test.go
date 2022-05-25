@@ -12,18 +12,11 @@ import (
 func TestEmpty(t *testing.T) {
 	t.Skip("wip")
 	db := New()
-	ok(t, db.Add("hello", []string{"planet"}, nil)) // no data
+	db.AddSlice("hello", []string{"planet"}, nil) // no data
 
 	b := &bytes.Buffer{}
 	ok(t, db.Write(b))
 	file := saveFile(t, b, "empty.sqlite")
-
-	/*
-		db, err := sqlittledb.OpenFile(file)
-		ok(t, err)
-		// db := must(t, tuple(sqlittledb.OpenFile(file))
-		mustEq(t, []string{}, tuple(db.Tables()))
-	*/
 
 	sqlite(t, file, ".tables", "planet")
 }
@@ -31,7 +24,7 @@ func TestEmpty(t *testing.T) {
 func TestEmptyTable(t *testing.T) {
 	// single, empty, table
 	db := New()
-	ok(t, db.Add("hello", []string{"planet"}, nil)) // no data
+	db.AddSlice("hello", []string{"planet"}, nil) // no data
 
 	b := &bytes.Buffer{}
 	ok(t, db.Write(b))
@@ -44,7 +37,7 @@ func TestEmptyTable(t *testing.T) {
 func TestAFewRows(t *testing.T) {
 	// single table, few rows
 	db := New()
-	ok(t, db.Add("planets", []string{"name", "moons"}, [][]any{
+	db.AddSlice("planets", []string{"name", "moons"}, [][]any{
 		{"Mercury", 0},
 		{"Venus", 0},
 		{"Earth", 1},
@@ -53,7 +46,7 @@ func TestAFewRows(t *testing.T) {
 		{"Saturn", 83},
 		{"Uranus", 27},
 		{"Neptune", 4},
-	}))
+	})
 
 	b := &bytes.Buffer{}
 	ok(t, db.Write(b))
@@ -67,7 +60,7 @@ func TestAFewRows(t *testing.T) {
 func TestOverflow(t *testing.T) {
 	// single table, very long rows.
 	db := New()
-	ok(t, db.Add("planets", []string{"name", "private_key"}, [][]any{
+	db.AddSlice("planets", []string{"name", "private_key"}, [][]any{
 		{"Mercury", strings.Repeat("a", 10_000)},
 		{"Venus", strings.Repeat("b", 59)},
 		{"Earth", strings.Repeat("c", 40_000)},
@@ -76,7 +69,7 @@ func TestOverflow(t *testing.T) {
 		{"Saturn", strings.Repeat("f", 12)},
 		{"Uranus", strings.Repeat("g", 8_000)},
 		{"Neptune", strings.Repeat("h", 75_000)},
-	}))
+	})
 
 	b := &bytes.Buffer{}
 	ok(t, db.Write(b))
@@ -90,17 +83,17 @@ func TestOverflow(t *testing.T) {
 func TestUpdates(t *testing.T) {
 	// two tables, and then update them, to see what sqlite thinks of it.
 	db := New()
-	ok(t, db.Add("planets", []string{"name", "moons"}, [][]any{
+	db.AddSlice("planets", []string{"name", "moons"}, [][]any{
 		{"Mercury", 0},
 		{"Venus", 0},
 		{"Earth", 1},
 		{"Mars", 2},
-	}))
-	ok(t, db.Add("colors", []string{"name", "r", "g", "b"}, [][]any{
+	})
+	db.AddSlice("colors", []string{"name", "r", "g", "b"}, [][]any{
 		{"white", 0, 0, 0},
 		{"black", 256, 256, 256},
 		{"red", 256, 0, 0},
-	}))
+	})
 
 	b := &bytes.Buffer{}
 	ok(t, db.Write(b))
@@ -121,11 +114,11 @@ func TestManyRows(t *testing.T) {
 	db := New()
 	var rows [][]any
 	// 128_000 uses a single level of interior pages, but that's no fun
-	for i := 0; i < 200_000; i++ {
+	for i := 1; i < 200_001; i++ {
 		rows = append(rows, []any{"r" + strconv.Itoa(i)})
 	}
 
-	ok(t, db.Add("counts", []string{"count"}, rows))
+	db.AddSlice("counts", []string{"count"}, rows)
 
 	b := &bytes.Buffer{}
 	ok(t, db.Write(b))
@@ -140,7 +133,7 @@ func TestManyRows(t *testing.T) {
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=10000", "r10000\n")
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=100000", "r100000\n")
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=199999", "r199999\n")
-	sqlite(t, file, "SELECT count FROM counts WHERE rowid=200000", "")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=200000", "r200000\n")
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=200001", "")
 }
 
@@ -149,14 +142,13 @@ func TestManyTables(t *testing.T) {
 	db := New()
 	for i := 42; i < 100; i++ {
 		tab := fmt.Sprintf("table_%d", i)
-		ok(t, db.Add(tab, []string{"chairs"}, [][]any{{1}, {2}, {3}, {4}, {5}}))
+		db.AddSlice(tab, []string{"chairs"}, [][]any{{1}, {2}, {3}, {4}, {5}})
 	}
 
 	b := &bytes.Buffer{}
 	ok(t, db.Write(b))
 	file := saveFile(t, b, "manytables.sqlite")
 
-	// sqlite(t, file, ".tables", "counts\n")
 	sqlite(t, file, "SELECT count(*) FROM table_42", "5\n")
 	sqlite(t, file, "SELECT sum(chairs) FROM table_87", "15\n")
 }
@@ -176,7 +168,7 @@ func TestHuge(t *testing.T) {
 	for i := 0; i < n; i++ {
 		rows = append(rows, []any{payload, payload})
 	}
-	ok(t, db.Add("exes", []string{"xes", "axes"}, rows))
+	db.AddSlice("exes", []string{"xes", "axes"}, rows)
 
 	b := &bytes.Buffer{}
 	ok(t, db.Write(b))
@@ -197,7 +189,7 @@ func BenchmarkCreate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		db := New()
 
-		ok(b, db.Add("exes", []string{"xes", "axes"}, rows))
+		db.AddSlice("exes", []string{"xes", "axes"}, rows)
 
 		buf := &bytes.Buffer{}
 		ok(b, db.Write(buf))

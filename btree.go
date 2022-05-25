@@ -4,10 +4,34 @@ import (
 	"github.com/alicebob/bakelite/internal"
 )
 
-// Write a "leaf table" page. It returns how many cells it managed to fit on this page.
-// Cells need to be ordered.
+// read as many leafs from source which still fit in a single leaf page
+func collectTableLeaf(isPage1 bool, source *recordSource) []tableLeafCell {
+	left := PageSize
+	if isPage1 {
+		left -= 100
+	}
+	left -= 8 // header
+
+	var ls []tableLeafCell
+	for {
+		next := source.Peek()
+		if next == nil {
+			break
+		}
+		needed := 2 + len(next.payload)
+		if left < needed {
+			break
+		}
+		ls = append(ls, *next)
+		left -= needed
+		source.Pop()
+	}
+	return ls
+}
+
+// Write a "leaf table" page. The list must fit on the page (see collectTableLeaf).
 // If isPage1 is true we start 100 bytes in (and so there is 100 bytes less available)
-func writeTableLeaf(page []byte, isPage1 bool, cells []tableLeafCell) int {
+func writeTableLeaf(page []byte, isPage1 bool, cells []tableLeafCell) {
 	// format:
 	// page[0]: type
 	// page[offset + 1,2]: first free block (not relevant)
@@ -24,30 +48,23 @@ func writeTableLeaf(page []byte, isPage1 bool, cells []tableLeafCell) int {
 		offset = 100
 	}
 	page[offset] = 0x0D // it's a leaf!
+	internal.PutUint16(page[offset+3:], uint16(len(cells)))
 
 	contentStart := len(page)
 	pointer := offset + 8 // where are we writing cell pointers to in page[].
-	count := 0
 	for _, cell := range cells {
-		payload := cell.Bytes()
-
-		if contentStart-len(payload) < pointer+2 {
-			break
-		}
-
+		payload := cell.payload
 		contentStart -= len(payload)
 		copy(page[contentStart:], payload)
 		internal.PutUint16(page[pointer:], uint16(contentStart))
 		pointer += 2
-		count += 1
 	}
 
-	internal.PutUint16(page[offset+3:], uint16(count))
-	if contentStart < 1<<16 {
+	if contentStart == 1<<16 {
 		// "0" means 64K, which happens when page size is 1<<16, there are no rows, and this is not isPage1.
-		internal.PutUint16(page[offset+5:], uint16(contentStart))
+		contentStart = 0
 	}
-	return count
+	internal.PutUint16(page[offset+5:], uint16(contentStart))
 }
 
 // returns: how many we placed

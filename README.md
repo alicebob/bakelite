@@ -21,7 +21,7 @@ file.
 
 ```
     db := bakelite.New()
-    db.Add("planets", []string{"name", "moons"}, [][]any{
+    db.AddSlice("planets", []string{"name", "moons"}, [][]any{
         {"Mercury", 0},
         {"Venus", 0},
         {"Earth", 1},
@@ -46,8 +46,6 @@ Main todos:
   - row encoding (we only deal with ints and strings)
   - hasn't seen a profiler. Got to make it work correctly first
   - this keeps everything in memory multiple times (and doesn't care about allocations)
-  - you need to hand in all the data at once. Which won't work if you want to
-    encode a few million rows. I can see a `db.AddCh("planets", []string{"name", "moons"}, <-chan []any)` work.
   - store as file. SQLite files can never be pure streaming, since we need to
     write some stuff at the beginning of the file once we have all the data,
     but a temp file would work, and then there are no memory restrictions anymore.

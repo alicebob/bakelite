@@ -17,3 +17,8 @@ func calculateCellInPageBytes(l int64, pageSize int, maxInPagePayload int) int {
 		return int(m)
 	}
 }
+
+func cellPayload(payload []byte) int {
+	maxInPage := PageSize - 35 // defined by sqlite for page leaf cells.
+	return calculateCellInPageBytes(int64(len(payload)), PageSize, maxInPage)
+}
