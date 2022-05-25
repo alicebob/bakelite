@@ -20,8 +20,8 @@ func New() *DB {
 
 // Add a new table with the given columns and rows.
 // Table and column names should probably be lowercase simple strings.
-// The length of every row should be allowed to be shorter than the number of
-// columns, according to the sqlite docs. What happens when they are longer is
+// The number of items in every row is allowed to be shorter than the number of
+// columns, according to the sqlite docs. What happens when there are more is
 // not defined.
 // Don't add the same table twice.
 // Don't use this from multiple Go routines at the same time.
@@ -31,11 +31,9 @@ func New() *DB {
 //   - string
 //   - nil
 // (yup, that's all for now)
-func (db *DB) Add(table string, columns []string, rows [][]any) error {
-	root, err := db.storeBtree(rows)
-	if err != nil {
-		return err
-	}
+func (db *DB) AddChan(table string, columns []string, rows <-chan []any) {
+	source := newRecordSource(db, rows)
+	root := db.storeTable(source)
 	db.master = append(db.master, masterRow{
 		typ:      "table",
 		name:     table,
@@ -43,7 +41,11 @@ func (db *DB) Add(table string, columns []string, rows [][]any) error {
 		rootpage: root,
 		sql:      sqlCreate(table, columns),
 	})
-	return nil
+}
+
+// AddSlice is a helper to call AddChan.
+func (db *DB) AddSlice(table string, columns []string, rows [][]any) {
+	db.AddChan(table, columns, stream(rows))
 }
 
 // Write the whole file to the writer. You probably don't want to use the db again.

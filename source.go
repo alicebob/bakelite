@@ -37,3 +37,15 @@ func (r *recordSource) Peek() *tableLeafCell {
 func (r *recordSource) Pop() {
 	r.peek = nil
 }
+
+// helper to go from slices to a channel
+func stream(rows [][]any) <-chan []any {
+	source := make(chan []any)
+	go func() {
+		defer close(source)
+		for _, row := range rows {
+			source <- row
+		}
+	}()
+	return source
+}

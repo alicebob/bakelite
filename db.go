@@ -21,12 +21,7 @@ func (db *DB) addPage(p []byte) int {
 }
 
 // adds all the rows of a table to the database. Returns the root ID.
-func (db *DB) storeBtree(rows [][]any) (int, error) {
-	pop := newRecordSource(db, stream(rows))
-	return db.storeCells(pop), nil
-}
-
-func (db *DB) storeCells(source *recordSource) int {
+func (db *DB) storeTable(source *recordSource) int {
 	// first fill all the table cell pages, collecting which page(s) we created.
 	isPage1 := false
 	var leafCells []tableInteriorCell
@@ -136,7 +131,7 @@ func (db *DB) updatePage1() {
 		pageID := db.addPage(page)
 
 		firstKey := source.Peek().left
-		restRootID := db.storeCells(source)
+		restRootID := db.storeTable(source)
 
 		writeTableInterior(page1, true, []tableInteriorCell{
 			{left: pageID, key: 0},
@@ -160,15 +155,4 @@ func (db *DB) masterRecords() [][]any {
 		})
 	}
 	return rows
-}
-
-func stream(rows [][]any) <-chan []any {
-	source := make(chan []any)
-	go func() {
-		defer close(source)
-		for _, row := range rows {
-			source <- row
-		}
-	}()
-	return source
 }
