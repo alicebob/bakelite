@@ -22,30 +22,28 @@ func (db *DB) addPage(p []byte) int {
 
 // adds all the rows of a table to the database. Returns the root ID.
 func (db *DB) storeBtree(rows [][]any) (int, error) {
-	cells, err := db.makeLeafCells(rows)
-	if err != nil {
-		return 0, err
-	}
-	return db.storeCells(cells), nil
+	pop := newRecordSource(db, stream(rows))
+	return db.storeCells(pop), nil
 }
 
-func (db *DB) storeCells(cells []tableLeafCell) int {
-	// first fill all the table cell pages...
+func (db *DB) storeCells(source *recordSource) int {
+	// first fill all the table cell pages, collecting which page(s) we created.
+	isPage1 := false
 	var leafCells []tableInteriorCell
 	for {
-		page := db.blankPage()
-		placed := writeTableLeaf(page, false, cells)
-		key := 0
+		cells := collectTableLeaf(isPage1, source)
+		firstKey := 0
 		if len(cells) > 0 {
-			// 0 cells is valid. The page will end up as .rightmost
-			key = cells[0].left
+			firstKey = cells[0].left
 		}
+
+		page := db.blankPage()
+		writeTableLeaf(page, isPage1, cells)
 		leafCells = append(leafCells, tableInteriorCell{
 			left: db.addPage(page),
-			key:  key,
+			key:  firstKey,
 		})
-		cells = cells[placed:]
-		if len(cells) == 0 {
+		if source.Peek() == nil {
 			break
 		}
 	}
@@ -91,30 +89,21 @@ func (db *DB) storeOverflow(b []byte) int {
 	return db.addPage(page)
 }
 
-// transform all records to a list of leaf cells ready to store. Also deals with overflow.
-func (db *DB) makeLeafCells(rows [][]any) ([]tableLeafCell, error) {
-	var cells []tableLeafCell
-	for i, row := range rows {
-		rec, err := makeRecord(row)
-		if err != nil {
-			return nil, err
-		}
-		fullSize := len(rec)
-		maxInPage := PageSize - 35 // defined by sqlite for page leaf cells.
-		maxInCell := calculateCellInPageBytes(int64(fullSize), PageSize, maxInPage)
-		overflow := 0
-		if len(rec) > maxInCell {
-			overflow = db.storeOverflow(rec[maxInCell:])
-			rec = rec[:maxInCell]
-		}
-		cells = append(cells, tableLeafCell{
-			left:     i,
-			fullSize: fullSize,
-			payload:  rec,
-			overflow: overflow,
-		})
+// transform a record a leaf cell ready to store. Deals with overflow.
+func (db *DB) makeLeafCell(rowID int, rec []byte) *tableLeafCell {
+	fullSize := len(rec)
+	maxInPage := cellPayload(rec)
+	overflow := 0
+	if len(rec) > maxInPage {
+		overflow = db.storeOverflow(rec[maxInPage:])
+		rec = rec[:maxInPage]
 	}
-	return cells, nil
+	return &tableLeafCell{
+		left:     rowID,
+		fullSize: fullSize,
+		payload:  rec,
+		overflow: overflow,
+	}
 }
 
 // "page 1" is the first page (db.page[0]) of the db. It is a leaf page with
@@ -122,27 +111,44 @@ func (db *DB) makeLeafCells(rows [][]any) ([]tableLeafCell, error) {
 // updatePage1() should be called when all tables have been added and we're
 // about to generate the db file.
 func (db *DB) updatePage1() {
-	cells := db.masterCells()
-	page := db.pages[0]
-	placed := writeTableLeaf(page, true, cells)
-	if placed != len(cells) {
+	recs := db.masterRecords()
+	source := newRecordSource(db, stream(recs))
+	cells := collectTableLeaf(true, source)
+	page1 := db.pages[0]
+
+	if source.Peek() == nil {
+		// Easy case, all our table definitions fit on page1, no interior pages
+		// needed.
+		writeTableLeaf(page1, true, cells)
+	} else {
 		// If we have just a few tables we're lucky and can fit all master
 		// tables in page[0]. However, it seems that we have too many tables,
 		// so we'll have to go build an interior-cell structure. SQLite can
 		// deal with this case nicely; it's used to moving things around, but
-		// we're not. So what we do is we build the structure in all new pages,
-		// and then link to those from here in a single-record interior page.
-		// SQLite is fine with that.
-		// (we could always build the pages this way, also if they would fit in
-		// the first page, but this more fun)
-		root := db.storeCells(cells)
-		writeTableInterior(page, true, []tableInteriorCell{{left: root, key: 0}})
+		// we're not.
+		// So what we do is we build a new page with the leaf cells we just
+		// wanted to used as page1, and then we make a normal tree with all the
+		// other records. Finally we put in page1 a interiorcell to the page
+		// and the tree.
+		// SQLite is fine with this.
+		page := db.blankPage()
+		writeTableLeaf(page, false, cells)
+		pageID := db.addPage(page)
+
+		firstKey := source.Peek().left
+		restRootID := db.storeCells(source)
+
+		writeTableInterior(page1, true, []tableInteriorCell{
+			{left: pageID, key: 0},
+			{left: restRootID, key: firstKey},
+		})
 	}
+
 	h := header(len(db.pages))
-	copy(page, h) // overwrite the first 100 bytes
+	copy(page1, h) // overwrite the first 100 bytes
 }
 
-func (db *DB) masterCells() []tableLeafCell {
+func (db *DB) masterRecords() [][]any {
 	var rows [][]any
 	for _, master := range db.master {
 		rows = append(rows, []any{
@@ -153,9 +159,16 @@ func (db *DB) masterCells() []tableLeafCell {
 			master.sql,
 		})
 	}
-	cells, err := db.makeLeafCells(rows)
-	if err != nil {
-		panic(err)
-	}
-	return cells
+	return rows
+}
+
+func stream(rows [][]any) <-chan []any {
+	source := make(chan []any)
+	go func() {
+		defer close(source)
+		for _, row := range rows {
+			source <- row
+		}
+	}()
+	return source
 }

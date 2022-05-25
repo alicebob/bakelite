@@ -121,7 +121,7 @@ func TestManyRows(t *testing.T) {
 	db := New()
 	var rows [][]any
 	// 128_000 uses a single level of interior pages, but that's no fun
-	for i := 0; i < 200_000; i++ {
+	for i := 1; i < 200_001; i++ {
 		rows = append(rows, []any{"r" + strconv.Itoa(i)})
 	}
 
@@ -140,7 +140,7 @@ func TestManyRows(t *testing.T) {
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=10000", "r10000\n")
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=100000", "r100000\n")
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=199999", "r199999\n")
-	sqlite(t, file, "SELECT count FROM counts WHERE rowid=200000", "")
+	sqlite(t, file, "SELECT count FROM counts WHERE rowid=200000", "r200000\n")
 	sqlite(t, file, "SELECT count FROM counts WHERE rowid=200001", "")
 }
 
@@ -156,7 +156,6 @@ func TestManyTables(t *testing.T) {
 	ok(t, db.Write(b))
 	file := saveFile(t, b, "manytables.sqlite")
 
-	// sqlite(t, file, ".tables", "counts\n")
 	sqlite(t, file, "SELECT count(*) FROM table_42", "5\n")
 	sqlite(t, file, "SELECT sum(chairs) FROM table_87", "15\n")
 }
