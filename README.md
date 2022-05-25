@@ -21,6 +21,7 @@ file.
 
 ```
     db := bakelite.New()
+    // Table with all data from a slice
     db.AddSlice("planets", []string{"name", "moons"}, [][]any{
         {"Mercury", 0},
         {"Venus", 0},
@@ -32,8 +33,17 @@ file.
         {"Neptune", 4},
     })
 
+    // Table with all data from a channel
+    stars := make(chan []any, 10)
+    stars <- []any{"Alpha Centauri", "4"}
+    stars <- []any{"Barnard's Star", "6"}
+    stars <- []any{"Luhman 16", "6"}
+    stars <- []any{"WISE 0855−0714", "7"}
+    stars <- []any{"Wolf 359", "7"}
+    db.AddChan("stars", []string{"name", "lightyears"}, stars)
+
     b := &bytes.Buffer{}
-    db.Write(b)
+    err := db.Write(b)
 ```
 
 

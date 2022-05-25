@@ -198,3 +198,34 @@ func BenchmarkCreate(b *testing.B) {
 		sqlite(b, file, "SELECT count(*) FROM exes", fmt.Sprintf("%d\n", n))
 	}
 }
+
+func Example() {
+	db := New()
+
+	// Table with all data in memory already
+	db.AddSlice("planets", []string{"name", "moons"}, [][]any{
+		{"Mercury", 0},
+		{"Venus", 0},
+		{"Earth", 1},
+		{"Mars", 2},
+		{"Jupiter", 80},
+		{"Saturn", 83},
+		{"Uranus", 27},
+		{"Neptune", 4},
+	})
+
+	// Table with all data from a channel
+	stars := make(chan []any, 10)
+	stars <- []any{"Alpha Centauri", "4"}
+	stars <- []any{"Barnard's Star", "6"}
+	stars <- []any{"Luhman 16", "6"}
+	stars <- []any{"WISE 0855−0714", "7"}
+	stars <- []any{"Wolf 359", "7"}
+	db.AddChan("stars", []string{"name", "lightyears"}, stars)
+
+	b := &bytes.Buffer{}
+	err := db.Write(b)
+	_ = err // ..
+	err = os.WriteFile("/tmp/universe.sqlite", b.Bytes(), 0600)
+	_ = err // ..
+}
