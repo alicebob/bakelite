@@ -9,16 +9,14 @@ import (
 	"testing"
 )
 
-func TestEmpty(t *testing.T) {
-	t.Skip("wip")
+func TestNoTables(t *testing.T) {
 	db := New()
-	db.AddSlice("hello", []string{"planet"}, nil) // no data
 
 	b := &bytes.Buffer{}
 	ok(t, db.WriteTo(b))
-	file := saveFile(t, b, "empty.sqlite")
+	file := saveFile(t, b, "nothing.sqlite")
 
-	sqlite(t, file, ".tables", "planet")
+	sqlite(t, file, ".tables", "")
 }
 
 func TestEmptyTable(t *testing.T) {
