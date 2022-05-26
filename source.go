@@ -1,15 +1,21 @@
 package bakelite
 
+import (
+	"fmt"
+)
+
 type recordSource struct {
 	db     *DB
+	table  string // only for error messages
 	source <-chan []any
 	rowID  int
 	peek   *tableLeafCell
 }
 
-func newRecordSource(db *DB, source <-chan []any) *recordSource {
+func newRecordSource(db *DB, table string, source <-chan []any) *recordSource {
 	return &recordSource{
 		db:     db,
+		table:  table,
 		source: source,
 		rowID:  1,
 	}
@@ -26,7 +32,11 @@ func (r *recordSource) Peek() *tableLeafCell {
 			return nil
 		}
 
-		rec, _ := makeRecord(row) // FIXME: err
+		rec, err := makeRecord(row)
+		if err != nil {
+			r.db.err = fmt.Errorf("table %q: %w", r.table, err)
+			return nil
+		}
 		cell := r.db.makeLeafCell(r.rowID, rec)
 		r.peek = &cell
 		r.rowID++

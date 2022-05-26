@@ -20,6 +20,15 @@ func ok(tb testing.TB, err error) {
 	}
 }
 
+// fail expects an error
+func fail(tb testing.TB, msg string, err error) {
+	tb.Helper()
+	if err == nil {
+		tb.Fatalf("no error, expected: %s", msg)
+	}
+	eq(tb, msg, err.Error())
+}
+
 // compare two values
 func eq[A any](tb testing.TB, want, have A) {
 	tb.Helper()

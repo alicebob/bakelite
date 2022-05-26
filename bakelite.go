@@ -31,8 +31,19 @@ func New() *DB {
 //   - string
 //   - nil
 // (yup, that's all for now)
-func (db *DB) AddChan(table string, columns []string, rows <-chan []any) {
-	source := newRecordSource(db, rows)
+//
+// This returns an error if any value is of an unsupported type. From then on
+// any other call to AddChan() will return the same error, and so will
+// WriteTo(). If there is an error we will drain the rows() channel.
+func (db *DB) AddChan(table string, columns []string, rows <-chan []any) error {
+	if db.err != nil {
+		// prevent Go routine leak
+		for range rows {
+		}
+		return db.err
+	}
+
+	source := newRecordSource(db, table, rows)
 	root := db.storeTable(source)
 	db.master = append(db.master, masterRow{
 		typ:      "table",
@@ -41,15 +52,25 @@ func (db *DB) AddChan(table string, columns []string, rows <-chan []any) {
 		rootpage: root,
 		sql:      sqlCreate(table, columns),
 	})
+
+	// prevent Go routine leak if there was an error
+	for range rows {
+	}
+
+	return db.err
 }
 
 // AddSlice is a helper to call AddChan.
-func (db *DB) AddSlice(table string, columns []string, rows [][]any) {
-	db.AddChan(table, columns, stream(rows))
+func (db *DB) AddSlice(table string, columns []string, rows [][]any) error {
+	return db.AddChan(table, columns, stream(rows))
 }
 
 // Write the whole file to the writer. You probably don't want to use the db again.
 func (db *DB) WriteTo(w io.Writer) error {
+	if db.err != nil {
+		return db.err
+	}
+
 	db.updatePage1()
 
 	for _, p := range db.pages {

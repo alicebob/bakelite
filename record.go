@@ -37,7 +37,7 @@ func makeRecord(row []any) ([]byte, error) {
 		case nil:
 			p += internal.PutUvarint(header[p:], 0)
 		default:
-			return nil, fmt.Errorf("unhandled type %t, probably nice if you add support", col)
+			return nil, fmt.Errorf("unsupported type (%T)", col)
 		}
 	}
 	ret := make([]byte, 1+p+body.Len())

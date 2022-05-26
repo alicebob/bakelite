@@ -7,6 +7,7 @@ import (
 type DB struct {
 	pages  [][]byte    // all these are of the correct length (PageSize)
 	master []masterRow // one entry per table, "sqlite_master" table, which is stored at "page 1" (pages[0])
+	err    error
 }
 
 func (db *DB) blankPage() []byte {
@@ -27,6 +28,9 @@ func (db *DB) storeTable(source *recordSource) int {
 	var leafCells []tableInteriorCell
 	for {
 		cells := collectTableLeaf(isPage1, source)
+		if db.err != nil {
+			return 0
+		}
 		firstKey := 0
 		if len(cells) > 0 {
 			firstKey = cells[0].rowID
@@ -102,7 +106,7 @@ func (db *DB) makeLeafCell(rowID int, rec []byte) tableLeafCell {
 // about to generate the db file.
 func (db *DB) updatePage1() {
 	recs := db.masterRecords()
-	source := newRecordSource(db, stream(recs))
+	source := newRecordSource(db, "sqlite_master", stream(recs))
 	cells := collectTableLeaf(true, source)
 	page1 := db.pages[0]
 

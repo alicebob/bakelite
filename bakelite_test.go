@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNoTables(t *testing.T) {
@@ -174,6 +175,72 @@ func TestHuge(t *testing.T) {
 
 	sqlite(t, file, ".tables", "exes\n")
 	sqlite(t, file, "SELECT count(*) FROM exes", fmt.Sprintf("%d\n", n))
+}
+
+func TestFailSlice(t *testing.T) {
+	msg := `table "plants": unsupported type (struct {})`
+
+	db := New()
+	fail(t, msg, db.AddSlice("plants", []string{"name", "size"}, [][]any{{struct{}{}}}))
+
+	fail(t, msg, db.AddSlice("blanb", []string{"name"}, [][]any{{"hi"}}))
+
+	b := &bytes.Buffer{}
+	fail(t, msg, db.WriteTo(b))
+}
+
+func TestFailChannel(t *testing.T) {
+	// failing a write should drain the channel
+	msg := `table "plants": unsupported type (struct {})`
+	db := New()
+
+	// error halfway the channel
+	{
+		var (
+			ch   = make(chan []any)
+			done = make(chan struct{})
+		)
+		go func() {
+			ch <- []any{1}
+			ch <- []any{2}
+			ch <- []any{struct{}{}}
+			ch <- []any{4}
+			ch <- []any{5}
+			close(done)
+			close(ch)
+		}()
+
+		fail(t, msg, db.AddChan("plants", []string{"name", "size"}, ch))
+
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("timeout")
+		}
+	}
+
+	// we should still drain later channels as well
+	{
+		var (
+			ch   = make(chan []any)
+			done = make(chan struct{})
+		)
+		go func() {
+			ch <- []any{1}
+			ch <- []any{2}
+			close(done)
+			close(ch)
+		}()
+		fail(t, msg, db.AddChan("blanb", []string{"name"}, ch))
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("timeout")
+		}
+	}
+
+	b := &bytes.Buffer{}
+	fail(t, msg, db.WriteTo(b))
 }
 
 func BenchmarkCreate(b *testing.B) {
