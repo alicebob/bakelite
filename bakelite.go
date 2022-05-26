@@ -34,7 +34,7 @@ func New() *DB {
 //
 // This returns an error if any value is of an unsupported type. From then on
 // any other call to AddChan() will return the same error, and so will
-// WriteTo(). If there is an error we will drain the rows() channel.
+// WriteTo(). If there is an error we will drain the rows channel.
 func (db *DB) AddChan(table string, columns []string, rows <-chan []any) error {
 	if db.err != nil {
 		// prevent Go routine leak

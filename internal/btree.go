@@ -1,4 +1,5 @@
 // This file is copied from sqlittle (also MIT)
+
 package internal
 
 import (

@@ -1,4 +1,5 @@
 // copied from sqlittle
+
 package internal
 
 import (
