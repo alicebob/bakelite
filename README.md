@@ -43,7 +43,7 @@ file.
     db.AddChan("stars", []string{"name", "lightyears"}, stars)
 
     b := &bytes.Buffer{}
-    err := db.Write(b)
+    err := db.WriteTo(b)
 ```
 
 

@@ -49,7 +49,7 @@ func (db *DB) AddSlice(table string, columns []string, rows [][]any) {
 }
 
 // Write the whole file to the writer. You probably don't want to use the db again.
-func (db *DB) Write(w io.Writer) error {
+func (db *DB) WriteTo(w io.Writer) error {
 	db.updatePage1()
 
 	for _, p := range db.pages {

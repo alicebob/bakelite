@@ -15,7 +15,7 @@ func TestEmpty(t *testing.T) {
 	db.AddSlice("hello", []string{"planet"}, nil) // no data
 
 	b := &bytes.Buffer{}
-	ok(t, db.Write(b))
+	ok(t, db.WriteTo(b))
 	file := saveFile(t, b, "empty.sqlite")
 
 	sqlite(t, file, ".tables", "planet")
@@ -27,7 +27,7 @@ func TestEmptyTable(t *testing.T) {
 	db.AddSlice("hello", []string{"planet"}, nil) // no data
 
 	b := &bytes.Buffer{}
-	ok(t, db.Write(b))
+	ok(t, db.WriteTo(b))
 	file := saveFile(t, b, "emptytable.sqlite")
 
 	sqlite(t, file, ".tables", "hello\n")
@@ -49,7 +49,7 @@ func TestAFewRows(t *testing.T) {
 	})
 
 	b := &bytes.Buffer{}
-	ok(t, db.Write(b))
+	ok(t, db.WriteTo(b))
 	file := saveFile(t, b, "afewrows.sqlite")
 
 	sqlite(t, file, ".tables", "planets\n")
@@ -72,7 +72,7 @@ func TestOverflow(t *testing.T) {
 	})
 
 	b := &bytes.Buffer{}
-	ok(t, db.Write(b))
+	ok(t, db.WriteTo(b))
 	file := saveFile(t, b, "overflow.sqlite")
 
 	sqlite(t, file, ".tables", "planets\n")
@@ -96,7 +96,7 @@ func TestUpdates(t *testing.T) {
 	})
 
 	b := &bytes.Buffer{}
-	ok(t, db.Write(b))
+	ok(t, db.WriteTo(b))
 	file := saveFile(t, b, "updates.sqlite")
 
 	sqlite(t, file, ".tables", "colors   planets\n")
@@ -121,7 +121,7 @@ func TestManyRows(t *testing.T) {
 	db.AddSlice("counts", []string{"count"}, rows)
 
 	b := &bytes.Buffer{}
-	ok(t, db.Write(b))
+	ok(t, db.WriteTo(b))
 	file := saveFile(t, b, "manyrows.sqlite")
 
 	sqlite(t, file, ".tables", "counts\n")
@@ -146,7 +146,7 @@ func TestManyTables(t *testing.T) {
 	}
 
 	b := &bytes.Buffer{}
-	ok(t, db.Write(b))
+	ok(t, db.WriteTo(b))
 	file := saveFile(t, b, "manytables.sqlite")
 
 	sqlite(t, file, "SELECT count(*) FROM table_42", "5\n")
@@ -171,7 +171,7 @@ func TestHuge(t *testing.T) {
 	db.AddSlice("exes", []string{"xes", "axes"}, rows)
 
 	b := &bytes.Buffer{}
-	ok(t, db.Write(b))
+	ok(t, db.WriteTo(b))
 	file := saveFile(t, b, "huge.sqlite")
 
 	sqlite(t, file, ".tables", "exes\n")
@@ -192,7 +192,7 @@ func BenchmarkCreate(b *testing.B) {
 		db.AddSlice("exes", []string{"xes", "axes"}, rows)
 
 		buf := &bytes.Buffer{}
-		ok(b, db.Write(buf))
+		ok(b, db.WriteTo(buf))
 		file := saveFile(b, buf, "bench.sqlite")
 
 		sqlite(b, file, "SELECT count(*) FROM exes", fmt.Sprintf("%d\n", n))
@@ -224,7 +224,7 @@ func Example() {
 	db.AddChan("stars", []string{"name", "lightyears"}, stars)
 
 	b := &bytes.Buffer{}
-	err := db.Write(b)
+	err := db.WriteTo(b)
 	_ = err // ..
 	err = os.WriteFile("/tmp/universe.sqlite", b.Bytes(), 0600)
 	_ = err // ..
