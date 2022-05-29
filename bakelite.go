@@ -13,9 +13,24 @@ const (
 
 // Create a new, in memory, db.
 func New() *DB {
-	db := &DB{}
-	db.addPage(db.blankPage()) // pages[0] is the master page
-	return db
+	store := &memStore{}
+	return newDB(store)
+}
+
+// Will write the database to the named file, using os.Create().
+// Use db.Close()
+// func NewFile(f string) (*DB, error) {
+// fh, err := os.Create(f)
+// }
+
+// Create a new db, with a tmp file stored in `dir`. See os.CreateTemp: if dir is empty this uses the default directory for temporary files.
+// Unlinks the file on db.Close()
+func NewTmp(dir string) (*DB, error) {
+	store, err := newTmpStore(dir)
+	if err != nil {
+		return nil, err
+	}
+	return newDB(store), nil
 }
 
 // Add a new table with the given columns and rows.
@@ -73,14 +88,13 @@ func (db *DB) WriteTo(w io.Writer) error {
 		return db.err
 	}
 
-	db.updatePage1()
+	page1 := db.getPage1()
+	return db.store.WriteTo(page1, w)
+}
 
-	for _, p := range db.pages {
-		if _, err := w.Write(p); err != nil {
-			return err
-		}
-	}
-	return nil
+// Close resources. If the database was created with NewTmp() Close() will remove the temp file.
+func (db *DB) Close() error {
+	return db.store.Close()
 }
 
 func sqlCreate(table string, columns []string) string {

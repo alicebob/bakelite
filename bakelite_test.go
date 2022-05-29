@@ -235,18 +235,27 @@ func TestHuge(t *testing.T) {
 	n := 2_000 // much more and I get OOM
 
 	var (
-		db      = New()
-		rows    [][]any
+		// db   = New()
+		db, _   = NewTmp("")
 		payload = strings.Repeat("x", 512_000) // 1/3 of a floppydisk
 	)
-	for i := 0; i < n; i++ {
-		rows = append(rows, []any{payload, payload})
-	}
-	db.AddSlice("exes", []string{"xes", "axes"}, rows)
+	defer db.Close()
+
+	ch := make(chan []any)
+	go func() {
+		for i := 0; i < n; i++ {
+			ch <- []any{payload, payload}
+		}
+		close(ch)
+	}()
+	ok(t, db.AddChan("exes", []string{"xes", "axes"}, ch))
+	fmt.Printf("Done AddChan\n")
 
 	b := &bytes.Buffer{}
 	ok(t, db.WriteTo(b))
+	fmt.Printf("Done WriteTo\n")
 	file := saveFile(t, b, "huge.sqlite")
+	fmt.Printf("Done saveFile\n")
 
 	sqlite(t, file, ".tables", "exes\n")
 	sqlite(t, file, "SELECT count(*) FROM exes", fmt.Sprintf("%d\n", n))
@@ -316,6 +325,25 @@ func TestFailChannel(t *testing.T) {
 
 	b := &bytes.Buffer{}
 	fail(t, msg, db.WriteTo(b))
+}
+
+func TestTmpFile(t *testing.T) {
+	db, err := NewTmp("")
+	ok(t, err)
+
+	defer db.Close()
+	ok(t, db.AddSlice("colors", []string{"name", "r", "g", "b"}, [][]any{
+		{"white", 0, 0, 0},
+		{"black", 256, 256, 256},
+		{"red", 256, 0, 0},
+	}))
+
+	b := &bytes.Buffer{}
+	ok(t, db.WriteTo(b))
+	file := saveFile(t, b, "tmpfile.sqlite")
+
+	sqlite(t, file, ".tables", "colors\n")
+	sqlite(t, file, "SELECT count(*) FROM colors", "3\n")
 }
 
 func BenchmarkCreate(b *testing.B) {
