@@ -56,6 +56,53 @@ func TestAFewRows(t *testing.T) {
 	sqlite(t, file, "SELECT name FROM planets ORDER BY moons", "Mercury\nVenus\nEarth\nMars\nNeptune\nUranus\nJupiter\nSaturn\n")
 }
 
+func TestValues(t *testing.T) {
+	db := New()
+	db.AddSlice("vals", []string{"value"}, [][]any{
+		{-2147483649},
+		{-2147483648},
+		{-32769},
+		{-32768},
+		{-129},
+		{-128},
+		{-1},
+		{0},
+		{1},
+		{2},
+		{127},
+		{128},
+		{32767},
+		{32768},
+		{2147483647},
+		{2147483648},
+	})
+
+	b := &bytes.Buffer{}
+	ok(t, db.WriteTo(b))
+	file := saveFile(t, b, "values.sqlite")
+
+	sqlite(t, file, ".tables", "vals\n")
+	sqlite(t, file, "SELECT value FROM vals ORDER BY value",
+		`-2147483649
+-2147483648
+-32769
+-32768
+-129
+-128
+-1
+0
+1
+2
+127
+128
+32767
+32768
+2147483647
+2147483648
+`,
+	)
+}
+
 func TestOverflow(t *testing.T) {
 	// single table, very long rows.
 	db := New()
