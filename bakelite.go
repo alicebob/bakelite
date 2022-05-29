@@ -30,6 +30,7 @@ func New() *DB {
 //   - int
 //   - float64
 //   - string
+//   - []byte
 //   - nil
 // (yup, that's all for now)
 //

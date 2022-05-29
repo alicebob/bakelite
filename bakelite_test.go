@@ -83,12 +83,17 @@ func TestValues(t *testing.T) {
 		{-0.0},
 		{-3.1415},
 	})
+	db.AddSlice("bytes", []string{"value"}, [][]any{
+		{[]byte("foo")},
+		{[]byte("bar")},
+		{"hello"},
+	})
 
 	b := &bytes.Buffer{}
 	ok(t, db.WriteTo(b))
 	file := saveFile(t, b, "values.sqlite")
 
-	sqlite(t, file, ".tables", "floats  ints  \n")
+	sqlite(t, file, ".tables", "bytes   floats  ints  \n")
 	sqlite(t, file, "SELECT value FROM ints ORDER BY value",
 		`-2147483649
 -2147483648
@@ -108,12 +113,20 @@ func TestValues(t *testing.T) {
 2147483648
 `,
 	)
+
 	sqlite(t, file, "SELECT value FROM floats ORDER BY value",
 		`-3.1415
 0.0
 0.0
 3.1415
 31415926535.89
+`,
+	)
+
+	sqlite(t, file, "SELECT value FROM bytes ORDER BY value",
+		`hello
+bar
+foo
 `,
 	)
 }

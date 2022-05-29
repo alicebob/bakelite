@@ -99,6 +99,16 @@ func TestRecord(t *testing.T) {
 		eq(t, "hello", rec[0].(string))
 	})
 
+	t.Run("bytes", func(t *testing.T) {
+		bs, err := makeRecord([]any{[]byte("hello")})
+		ok(t, err)
+
+		rec, err := internal.ParseRecord(bs)
+		ok(t, err)
+		eq(t, 1, len(rec))
+		eq(t, []byte("hello"), rec[0].([]byte))
+	})
+
 	t.Run("special case: 0", func(t *testing.T) {
 		bs, err := makeRecord([]any{0})
 		ok(t, err)
