@@ -1,7 +1,7 @@
 package bakelite
 
 import (
-	"encoding/binary"
+	"github.com/alicebob/bakelite/internal"
 )
 
 type DB struct {
@@ -83,7 +83,7 @@ func (db *DB) storeOverflow(b []byte) int {
 
 	car, cdr := b[:PageSize-4], b[PageSize-4:]
 	nextID := db.storeOverflow(cdr)
-	binary.BigEndian.PutUint32(page, uint32(nextID))
+	internal.PutUint32(page, uint32(nextID))
 	copy(page[4:], car)
 	return db.addPage(page)
 }

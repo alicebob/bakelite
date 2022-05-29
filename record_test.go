@@ -19,7 +19,7 @@ func TestRecord(t *testing.T) {
 		eq(t, 0, len(rec))
 	})
 
-	t.Run("simple int", func(t *testing.T) {
+	t.Run("8-bit int", func(t *testing.T) {
 		bs, err := makeRecord([]any{42})
 		ok(t, err)
 
@@ -27,6 +27,66 @@ func TestRecord(t *testing.T) {
 		ok(t, err)
 		eq(t, 1, len(rec))
 		eq(t, 42, rec[0].(int64))
+	})
+
+	t.Run("16-bit int", func(t *testing.T) {
+		bs, err := makeRecord([]any{1 << 14})
+		ok(t, err)
+
+		rec, err := internal.ParseRecord(bs)
+		ok(t, err)
+		eq(t, 1, len(rec))
+		eq(t, 1<<14, rec[0].(int64))
+	})
+
+	t.Run("24-bit int", func(t *testing.T) {
+		bs, err := makeRecord([]any{1 << 20})
+		ok(t, err)
+
+		rec, err := internal.ParseRecord(bs)
+		ok(t, err)
+		eq(t, 1, len(rec))
+		eq(t, 1<<20, rec[0].(int64))
+	})
+
+	t.Run("32-bit int", func(t *testing.T) {
+		bs, err := makeRecord([]any{1 << 30})
+		ok(t, err)
+
+		rec, err := internal.ParseRecord(bs)
+		ok(t, err)
+		eq(t, 1, len(rec))
+		eq(t, 1<<30, rec[0].(int64))
+	})
+
+	t.Run("48-bit int", func(t *testing.T) {
+		bs, err := makeRecord([]any{1 << 45})
+		ok(t, err)
+
+		rec, err := internal.ParseRecord(bs)
+		ok(t, err)
+		eq(t, 1, len(rec))
+		eq(t, 1<<45, rec[0].(int64))
+	})
+
+	t.Run("64-bit int", func(t *testing.T) {
+		bs, err := makeRecord([]any{1 << 62})
+		ok(t, err)
+
+		rec, err := internal.ParseRecord(bs)
+		ok(t, err)
+		eq(t, 1, len(rec))
+		eq(t, 1<<62, rec[0].(int64))
+	})
+
+	t.Run("float 64", func(t *testing.T) {
+		bs, err := makeRecord([]any{3.1415})
+		ok(t, err)
+
+		rec, err := internal.ParseRecord(bs)
+		ok(t, err)
+		eq(t, 1, len(rec))
+		eq(t, 3.1415, rec[0].(float64))
 	})
 
 	t.Run("simple string", func(t *testing.T) {
@@ -37,6 +97,16 @@ func TestRecord(t *testing.T) {
 		ok(t, err)
 		eq(t, 1, len(rec))
 		eq(t, "hello", rec[0].(string))
+	})
+
+	t.Run("bytes", func(t *testing.T) {
+		bs, err := makeRecord([]any{[]byte("hello")})
+		ok(t, err)
+
+		rec, err := internal.ParseRecord(bs)
+		ok(t, err)
+		eq(t, 1, len(rec))
+		eq(t, []byte("hello"), rec[0].([]byte))
 	})
 
 	t.Run("special case: 0", func(t *testing.T) {

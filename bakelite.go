@@ -28,7 +28,9 @@ func New() *DB {
 //
 // Supported Go datatypes:
 //   - int
+//   - float64
 //   - string
+//   - []byte
 //   - nil
 // (yup, that's all for now)
 //

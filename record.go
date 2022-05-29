@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 
 	"github.com/alicebob/bakelite/internal"
 )
@@ -18,18 +19,43 @@ func makeRecord(row []any) ([]byte, error) {
 	for _, col := range row {
 		switch v := col.(type) {
 		case int:
-			switch v {
-			case 0:
+			switch {
+			case v == 0:
 				p += internal.PutUvarint(header[p:], 8)
-			case 1:
+			case v == 1:
 				p += internal.PutUvarint(header[p:], 9)
+			case v >= math.MinInt8 && v <= math.MaxInt8:
+				p += internal.PutUvarint(header[p:], 1)
+				if err := binary.Write(body, binary.BigEndian, int8(v)); err != nil {
+					return nil, err
+				}
+			case v >= math.MinInt16 && v <= math.MaxInt16:
+				p += internal.PutUvarint(header[p:], 2)
+				if err := binary.Write(body, binary.BigEndian, int16(v)); err != nil {
+					return nil, err
+				}
+				// skipped Int24 (type 3)
+			case v >= math.MinInt32 && v <= math.MaxInt32:
+				p += internal.PutUvarint(header[p:], 4)
+				if err := binary.Write(body, binary.BigEndian, int32(v)); err != nil {
+					return nil, err
+				}
+				// skipped Int48 (type 5)
 			default:
-				// TODO: we make it a 64bit number, but we should pick the smallest possible one
 				p += internal.PutUvarint(header[p:], 6)
 				if err := binary.Write(body, binary.BigEndian, int64(v)); err != nil {
 					return nil, err
 				}
 			}
+		case float64:
+			p += internal.PutUvarint(header[p:], 7)
+			if err := binary.Write(body, binary.BigEndian, math.Float64bits(v)); err != nil {
+				return nil, err
+			}
+		case []byte:
+			l := 12 + 2*len(v)
+			p += internal.PutUvarint(header[p:], uint64(l))
+			body.Write(v)
 		case string:
 			l := 13 + 2*len(v)
 			p += internal.PutUvarint(header[p:], uint64(l))

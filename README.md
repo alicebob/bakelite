@@ -59,6 +59,7 @@ Main todos:
   - store as file. SQLite files can never be pure streaming, since we need to
     write some stuff at the beginning of the file once we have all the data,
     but a temp file would work, and then there are no memory restrictions anymore.
+  - check if "1.4. The Lock-Byte Page" is relevant
 
 What this library won't do:
   - add indexes. (but every row gets an internal "row id", which we could
