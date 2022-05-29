@@ -47,6 +47,11 @@ func makeRecord(row []any) ([]byte, error) {
 					return nil, err
 				}
 			}
+		case float64:
+			p += internal.PutUvarint(header[p:], 7)
+			if err := binary.Write(body, binary.BigEndian, math.Float64bits(v)); err != nil {
+				return nil, err
+			}
 		case string:
 			l := 13 + 2*len(v)
 			p += internal.PutUvarint(header[p:], uint64(l))

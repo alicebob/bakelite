@@ -79,6 +79,16 @@ func TestRecord(t *testing.T) {
 		eq(t, 1<<62, rec[0].(int64))
 	})
 
+	t.Run("float 64", func(t *testing.T) {
+		bs, err := makeRecord([]any{3.1415})
+		ok(t, err)
+
+		rec, err := internal.ParseRecord(bs)
+		ok(t, err)
+		eq(t, 1, len(rec))
+		eq(t, 3.1415, rec[0].(float64))
+	})
+
 	t.Run("simple string", func(t *testing.T) {
 		bs, err := makeRecord([]any{"hello"})
 		ok(t, err)
