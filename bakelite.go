@@ -79,7 +79,7 @@ func (db *DB) AddSlice(table string, columns []string, rows [][]any) error {
 }
 
 // Write the whole file to the writer. You probably don't want to use the db again.
-// If any previouw AddChan() or AddSlice() returned an error, then this will
+// If any previous AddChan() or AddSlice() returned an error, then this will
 // return the same error.
 func (db *DB) WriteTo(w io.Writer) error {
 	if db.err != nil {

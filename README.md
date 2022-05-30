@@ -20,7 +20,10 @@ file.
 # example
 
 ```
+    // New() keeps the whole database in memory. See NewTmp() for a disk based option.
     db := bakelite.New()
+    defer db.Close()
+
     // Table with all data from a slice
     err := db.AddSlice("planets", []string{"name", "moons"}, [][]any{
         {"Mercury", 0},

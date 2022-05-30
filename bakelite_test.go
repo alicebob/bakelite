@@ -398,6 +398,7 @@ func BenchmarkCreate(b *testing.B) {
 
 func Example() {
 	db := New()
+	defer db.Close()
 
 	// Table with all data in memory already
 	db.AddSlice("planets", []string{"name", "moons"}, [][]any{
