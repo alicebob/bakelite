@@ -235,7 +235,7 @@ func TestHugeMem(t *testing.T) {
 	n := 2_000 // much more and I get OOM
 
 	var (
-		db      = New("")
+		db      = New()
 		payload = strings.Repeat("x", 512_000) // 1/3 of a floppydisk
 	)
 	defer db.Close()
@@ -262,7 +262,7 @@ func TestHugeDisk(t *testing.T) {
 		t.Skip("not huge")
 	}
 
-	n := 20_000 // 20gb
+	n := 20_000 // generates a db file of about 20gb, + same for the tmp file
 
 	var (
 		// db   = New()
@@ -279,15 +279,12 @@ func TestHugeDisk(t *testing.T) {
 		close(ch)
 	}()
 	ok(t, db.AddChan("exes", []string{"xes", "axes"}, ch))
-	fmt.Printf("Done AddChan\n")
 
 	f, err := os.Create("./testdata/hugedisk.sqlite")
 	ok(t, err)
 	ok(t, db.WriteTo(f))
-	fmt.Printf("Done WriteTo\n")
 	file := f.Name()
 	f.Close()
-	fmt.Printf("Done saveFile\n")
 
 	sqlite(t, file, ".tables", "exes\n")
 	sqlite(t, file, "SELECT count(*) FROM exes", fmt.Sprintf("%d\n", n))

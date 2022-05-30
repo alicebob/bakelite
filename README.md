@@ -49,17 +49,12 @@ file.
 
 # status
 
-Not ready for production. It can write files and SQLite is
-happy with those files, but it's still early code.
+Not used in production yet. It can write files and SQLite is happy with those
+files.
 
 Main todos:
-  - row encoding (we only deal with ints and strings)
-  - hasn't seen a profiler. Got to make it work correctly first
-  - this keeps everything in memory multiple times (and doesn't care about allocations)
-  - store as file. SQLite files can never be pure streaming, since we need to
-    write some stuff at the beginning of the file once we have all the data,
-    but a temp file would work, and then there are no memory restrictions anymore.
-  - check if "1.4. The Lock-Byte Page" is relevant
+  - support more Go datatypes, such as int32 and bool.
+  - hasn't seen a profiler.
 
 What this library won't do:
   - add indexes. (but every row gets an internal "row id", which we could

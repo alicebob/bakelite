@@ -5,9 +5,8 @@ import (
 )
 
 type DB struct {
-	store storer
-	// pages  [][]byte    // all these are of the correct length (PageSize)
-	master   []masterRow // one entry per table, "sqlite_master" table, which is stored at "page 1" (pages[0])
+	store    storer
+	master   []masterRow // one record per table, "sqlite_master" table, which is stored at "page 1"
 	lastPage int
 	err      error
 }
@@ -20,6 +19,7 @@ func newDB(store storer) *DB {
 	return db
 }
 
+// new page of the correct size. Add it with db.addPage().
 func (db *DB) blankPage() []byte {
 	return make([]byte, PageSize)
 }
@@ -32,9 +32,6 @@ func (db *DB) addPage(p []byte) int {
 	}
 	db.lastPage = id
 	return id
-	// id := len(db.pages) + 1
-	// db.pages = append(db.pages, p)
-	// return id
 }
 
 // adds all the rows of a table to the database. Returns the root ID.

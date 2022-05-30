@@ -12,18 +12,14 @@ const (
 )
 
 // Create a new, in memory, db.
+// Does nothing on db.Close()
 func New() *DB {
 	store := &memStore{}
 	return newDB(store)
 }
 
-// Will write the database to the named file, using os.Create().
-// Use db.Close()
-// func NewFile(f string) (*DB, error) {
-// fh, err := os.Create(f)
-// }
-
-// Create a new db, with a tmp file stored in `dir`. See os.CreateTemp: if dir is empty this uses the default directory for temporary files.
+// Create a new db, with a tmp file stored in `dir`. See os.CreateTemp: if dir
+// is empty this uses the default directory for temporary files.
 // Unlinks the file on db.Close()
 func NewTmp(dir string) (*DB, error) {
 	store, err := newTmpStore(dir)
@@ -83,6 +79,8 @@ func (db *DB) AddSlice(table string, columns []string, rows [][]any) error {
 }
 
 // Write the whole file to the writer. You probably don't want to use the db again.
+// If any previouw AddChan() or AddSlice() returned an error, then this will
+// return the same error.
 func (db *DB) WriteTo(w io.Writer) error {
 	if db.err != nil {
 		return db.err
@@ -92,7 +90,7 @@ func (db *DB) WriteTo(w io.Writer) error {
 	return db.store.WriteTo(page1, w)
 }
 
-// Close resources. If the database was created with NewTmp() Close() will remove the temp file.
+// Cleanup resources. If the database was created with NewTmp() Close() will remove the temp file.
 func (db *DB) Close() error {
 	return db.store.Close()
 }
