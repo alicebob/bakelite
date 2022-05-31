@@ -12,10 +12,21 @@ const (
 )
 
 // Create a new, in memory, db.
+// Does nothing on db.Close()
 func New() *DB {
-	db := &DB{}
-	db.addPage(db.blankPage()) // pages[0] is the master page
-	return db
+	store := &memStore{}
+	return newDB(store)
+}
+
+// Create a new db, with a tmp file stored in `dir`. See os.CreateTemp: if dir
+// is empty this uses the default directory for temporary files.
+// Unlinks the file on db.Close()
+func NewTmp(dir string) (*DB, error) {
+	store, err := newTmpStore(dir)
+	if err != nil {
+		return nil, err
+	}
+	return newDB(store), nil
 }
 
 // Add a new table with the given columns and rows.
@@ -68,19 +79,20 @@ func (db *DB) AddSlice(table string, columns []string, rows [][]any) error {
 }
 
 // Write the whole file to the writer. You probably don't want to use the db again.
+// If any previous AddChan() or AddSlice() returned an error, then this will
+// return the same error.
 func (db *DB) WriteTo(w io.Writer) error {
 	if db.err != nil {
 		return db.err
 	}
 
-	db.updatePage1()
+	page1 := db.getPage1()
+	return db.store.WriteTo(page1, w)
+}
 
-	for _, p := range db.pages {
-		if _, err := w.Write(p); err != nil {
-			return err
-		}
-	}
-	return nil
+// Cleanup resources. If the database was created with NewTmp() Close() will remove the temp file.
+func (db *DB) Close() error {
+	return db.store.Close()
 }
 
 func sqlCreate(table string, columns []string) string {

@@ -5,19 +5,32 @@ import (
 )
 
 type DB struct {
-	pages  [][]byte    // all these are of the correct length (PageSize)
-	master []masterRow // one entry per table, "sqlite_master" table, which is stored at "page 1" (pages[0])
-	err    error
+	store    storer
+	master   []masterRow // one record per table, "sqlite_master" table, which is stored at "page 1"
+	lastPage int
+	err      error
 }
 
+func newDB(store storer) *DB {
+	db := &DB{
+		store: store,
+	}
+	db.addPage(db.blankPage()) // setup page1
+	return db
+}
+
+// new page of the correct size. Add it with db.addPage().
 func (db *DB) blankPage() []byte {
 	return make([]byte, PageSize)
 }
 
 // add a page and return its ID.
 func (db *DB) addPage(p []byte) int {
-	id := len(db.pages) + 1
-	db.pages = append(db.pages, p)
+	id, err := db.store.AddPage(p)
+	if err != nil {
+		db.err = err
+	}
+	db.lastPage = id
 	return id
 }
 
@@ -104,11 +117,11 @@ func (db *DB) makeLeafCell(rowID int, rec []byte) tableLeafCell {
 // all the tables in it. The first 100 bytes have the database header.
 // updatePage1() should be called when all tables have been added and we're
 // about to generate the db file.
-func (db *DB) updatePage1() {
+func (db *DB) getPage1() []byte {
 	recs := db.masterRecords()
 	source := newRecordSource(db, "sqlite_master", stream(recs))
 	cells := collectTableLeaf(true, source)
-	page1 := db.pages[0]
+	page1 := db.blankPage()
 
 	if source.Peek() == nil {
 		// Easy case, all our table definitions fit on page1, no interior pages
@@ -138,8 +151,9 @@ func (db *DB) updatePage1() {
 		})
 	}
 
-	h := header(len(db.pages))
+	h := header(db.lastPage)
 	copy(page1, h) // overwrite the first 100 bytes
+	return page1
 }
 
 func (db *DB) masterRecords() [][]any {

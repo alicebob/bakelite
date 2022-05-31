@@ -227,7 +227,7 @@ func TestManyTables(t *testing.T) {
 	sqlite(t, file, "SELECT sum(chairs) FROM table_87", "15\n")
 }
 
-func TestHuge(t *testing.T) {
+func TestHugeMem(t *testing.T) {
 	if os.Getenv("HUGE") == "" {
 		t.Skip("not huge")
 	}
@@ -236,17 +236,55 @@ func TestHuge(t *testing.T) {
 
 	var (
 		db      = New()
-		rows    [][]any
 		payload = strings.Repeat("x", 512_000) // 1/3 of a floppydisk
 	)
-	for i := 0; i < n; i++ {
-		rows = append(rows, []any{payload, payload})
-	}
-	db.AddSlice("exes", []string{"xes", "axes"}, rows)
+	defer db.Close()
+
+	ch := make(chan []any)
+	go func() {
+		for i := 0; i < n; i++ {
+			ch <- []any{payload, payload}
+		}
+		close(ch)
+	}()
+	ok(t, db.AddChan("exes", []string{"xes", "axes"}, ch))
 
 	b := &bytes.Buffer{}
 	ok(t, db.WriteTo(b))
-	file := saveFile(t, b, "huge.sqlite")
+	file := saveFile(t, b, "hugemem.sqlite")
+
+	sqlite(t, file, ".tables", "exes\n")
+	sqlite(t, file, "SELECT count(*) FROM exes", fmt.Sprintf("%d\n", n))
+}
+
+func TestHugeDisk(t *testing.T) {
+	if os.Getenv("HUGE") == "" {
+		t.Skip("not huge")
+	}
+
+	n := 20_000 // generates a db file of about 20gb, + same for the tmp file
+
+	var (
+		// db   = New()
+		db, _   = NewTmp("")
+		payload = strings.Repeat("x", 512_000) // 1/3 of a floppydisk
+	)
+	defer db.Close()
+
+	ch := make(chan []any)
+	go func() {
+		for i := 0; i < n; i++ {
+			ch <- []any{payload, payload}
+		}
+		close(ch)
+	}()
+	ok(t, db.AddChan("exes", []string{"xes", "axes"}, ch))
+
+	f, err := os.Create("./testdata/hugedisk.sqlite")
+	ok(t, err)
+	ok(t, db.WriteTo(f))
+	file := f.Name()
+	f.Close()
 
 	sqlite(t, file, ".tables", "exes\n")
 	sqlite(t, file, "SELECT count(*) FROM exes", fmt.Sprintf("%d\n", n))
@@ -318,6 +356,25 @@ func TestFailChannel(t *testing.T) {
 	fail(t, msg, db.WriteTo(b))
 }
 
+func TestTmpFile(t *testing.T) {
+	db, err := NewTmp("")
+	ok(t, err)
+
+	defer db.Close()
+	ok(t, db.AddSlice("colors", []string{"name", "r", "g", "b"}, [][]any{
+		{"white", 0, 0, 0},
+		{"black", 256, 256, 256},
+		{"red", 256, 0, 0},
+	}))
+
+	b := &bytes.Buffer{}
+	ok(t, db.WriteTo(b))
+	file := saveFile(t, b, "tmpfile.sqlite")
+
+	sqlite(t, file, ".tables", "colors\n")
+	sqlite(t, file, "SELECT count(*) FROM colors", "3\n")
+}
+
 func BenchmarkCreate(b *testing.B) {
 	payload := strings.Repeat("x", 512)
 	n := 4000
@@ -341,6 +398,7 @@ func BenchmarkCreate(b *testing.B) {
 
 func Example() {
 	db := New()
+	defer db.Close()
 
 	// Table with all data in memory already
 	db.AddSlice("planets", []string{"name", "moons"}, [][]any{
